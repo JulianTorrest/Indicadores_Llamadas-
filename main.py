@@ -37,7 +37,7 @@ def agrupar_resultado_gestion(valor):
             return "Éxito Total"
 
     # 3. No Contactado
-    if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest"]):
+    if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest", "no contactado"]):
         return "No contestaron"
 
     # 4. Rechazo
