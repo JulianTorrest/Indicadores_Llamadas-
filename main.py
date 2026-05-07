@@ -488,19 +488,30 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
                     # Nuevo gráfico: ¿En qué intento se logra el éxito?
                     st.write("### 📈 Esfuerzo de Conversión Post-Seguimiento")
-                    # Filtrar gestiones de éxito que ocurrieron después del primer seguimiento
-                    df_exitos_post = df_post[df_post['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]
-                    if not df_exitos_post.empty:
+                    
+                    # --- CAMBIO CRÍTICO AQUÍ ---
+                    # 1. Identificar los tel_link que realmente terminaron en éxito (según la métrica de arriba)
+                    successful_tel_links_from_metric = ultimo_estado[ultimo_estado['Resultado Posterior'].isin(["Éxito Total", "Parcial / Incompleta"])]['tel_link']
+                    
+                    # 2. Filtrar df_post para incluir solo las actividades de ESTOS contactos exitosos
+                    df_post_successful_only = df_post[df_post['tel_link'].isin(successful_tel_links_from_metric)]
+                    
+                    # 3. Filtrar las gestiones de éxito dentro de este subconjunto
+                    df_exitos_post_filtered = df_post_successful_only[df_post_successful_only['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]
+                    
+                    if not df_exitos_post_filtered.empty:
                         # Encontrar la fecha del primer éxito post-seguimiento
-                        primer_exito_post = df_exitos_post.sort_values('Marca temporal').groupby('tel_link')['Marca temporal'].min().reset_index()
-                        primer_exito_post.columns = ['tel_link', 'Fecha_Primer_Exito']
+                        # Usamos df_exitos_post_filtered para asegurar que solo consideramos los éxitos finales
+                        primer_exito_post_filtered = df_exitos_post_filtered.sort_values('Marca temporal').groupby('tel_link')['Marca temporal'].min().reset_index()
+                        primer_exito_post_filtered.columns = ['tel_link', 'Fecha_Primer_Exito']
                         
                         # Contar intentos ocurridos entre el primer seguimiento y el primer éxito
-                        df_camino_exito = pd.merge(df_post, primer_exito_post, on='tel_link')
-                        df_camino_exito = df_camino_exito[df_camino_exito['Marca temporal'] <= df_camino_exito['Fecha_Primer_Exito']]
-                        intentos_hasta_exito = df_camino_exito.groupby('tel_link').size().reset_index(name='Intentos_Adicionales')
+                        # Merge con df_post_successful_only para contar intentos para solo estos contactos
+                        df_camino_exito_filtered = pd.merge(df_post_successful_only, primer_exito_post_filtered, on='tel_link')
+                        df_camino_exito_filtered = df_camino_exito_filtered[df_camino_exito_filtered['Marca temporal'] <= df_camino_exito_filtered['Fecha_Primer_Exito']]
+                        intentos_hasta_exito_filtered = df_camino_exito_filtered.groupby('tel_link').size().reset_index(name='Intentos_Adicionales')
                         
-                        fig_momento = px.bar(intentos_hasta_exito['Intentos_Adicionales'].value_counts().sort_index(),
+                        fig_momento = px.bar(intentos_hasta_exito_filtered['Intentos_Adicionales'].value_counts().sort_index(),
                                             title="¿Cuántas llamadas adicionales toma convertir un 'Llamar Después' en Éxito?",
                                             labels={'index': 'Nro de Intentos Adicionales', 'value': 'Cantidad de Contactos'},
                                             text_auto=True)
