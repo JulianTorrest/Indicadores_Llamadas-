@@ -12,6 +12,14 @@ def limpiar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.title()
 
+def limpiar_telefono(tel):
+    if pd.isna(tel): return None
+    s = str(tel).split('.')[0]
+    s = ''.join(filter(str.isdigit, s))
+    if s.startswith('57') and len(s) > 10:
+        s = s[2:]
+    return s
+
 def agrupar_resultado_gestion(valor):
     valor = str(valor).lower()
     if "responde la encuesta" in valor or "encuesta incompleta" in valor:
@@ -44,6 +52,14 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if col_nombre in df.columns:
                     df[col_nombre] = df[col_nombre].apply(limpiar_texto)
                 
+                # Estandarizar fecha y teléfono
+                if "Marca temporal" in df.columns:
+                    df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce')
+                
+                col_tel = "Número de teléfono sobre el que se realizó la gestión"
+                if col_tel in df.columns:
+                    df["tel_link"] = df[col_tel].apply(limpiar_telefono)
+                
                 # 2. Agrupar Resultados de la gestión
                 col_resultado = "Resultado de la gestión"
                 if col_resultado in df.columns:
@@ -56,6 +72,10 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if col_encuestador in df.columns:
                     df[col_encuestador] = df[col_encuestador].apply(limpiar_texto)
                 
+                col_tel = "Teléfono"
+                if col_tel in df.columns:
+                    df["tel_link"] = df[col_tel].apply(limpiar_telefono)
+
                 # Estandarizar Constructora
                 col_constructora = "Constructora"
                 if col_constructora in df.columns:
@@ -82,6 +102,9 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if "encuestador" in df.columns:
                     df["encuestador"] = df["encuestador"].apply(limpiar_texto)
                 
+                if "telefono_destino" in df.columns:
+                    df["tel_link"] = df["telefono_destino"].apply(limpiar_telefono)
+
                 # Estandarizar fecha de llamada
                 if "fecha_llamada" in df.columns:
                     df["fecha_llamada"] = pd.to_datetime(df["fecha_llamada"], errors='coerce')
@@ -92,6 +115,9 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 for col_fecha in ["Start Time", "End Time", "Date Created"]:
                     if col_fecha in df.columns:
                         df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
+                
+                if "To" in df.columns:
+                    df["tel_link"] = df["To"].apply(limpiar_telefono)
 
             datos_limpios[nombre_hoja] = df
         return datos_limpios
@@ -151,7 +177,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
     if datos:
         st.sidebar.header("Filtros Globales")
-        vistas = ["Resumen de KPIs Críticos", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Resumen de KPIs Críticos", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         hoja_seleccionada = st.sidebar.selectbox("Seleccione la fuente de datos:", vistas)
 
         if hoja_seleccionada == "Resumen de KPIs Críticos":
@@ -209,15 +235,62 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     avg_molestia = df_g[campo_molestia].mean()
                     st.progress(avg_molestia / 7.0)
                     st.write(f"Nivel de molestia promedio: **{avg_molestia:.2f} / 7**")
-            
-            # Gráfico comparativo de productividad por encuestador cruzado
-            st.subheader("Productividad: Gestiones vs Duración Real")
-            if not df_g.empty and not df_t.empty:
-                # Nota: Este gráfico asume que podemos cruzar por nombre, 
-                # para una versión pro, necesitaríamos una tabla de mapeo entre Nombres y Números de Twilio.
-                st.info("Para un cruce exacto por encuestador, se recomienda vincular los números de 'From' en Twilio con los nombres.")
 
             st.stop() # Finaliza la vista de KPIs para no mostrar el resto
+
+        elif hoja_seleccionada == "Comportamiento 24h y Efectividad":
+            st.header("🕒 Comportamiento Temporal y Efectividad")
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            df_e = datos.get("Entregados", pd.DataFrame())
+
+            if not df_g.empty and "Marca temporal" in df_g.columns:
+                df_g['Hora'] = df_g['Marca temporal'].dt.hour
+                # Cruzar con entregados para medir efectividad real
+                if not df_e.empty and 'tel_link' in df_e.columns:
+                    df_merge = pd.merge(df_g, df_e[['tel_link', 'Nombre']], on='tel_link', how='left')
+                    df_merge['Efectivo'] = df_merge['Nombre'].notna()
+                    
+                    hourly_stats = df_merge.groupby('Hora').agg(
+                        Gestiones=('Marca temporal', 'count'),
+                        Entregas=('Efectivo', 'sum')
+                    ).reset_index()
+                    
+                    fig_24h = px.line(hourly_stats, x='Hora', y=['Gestiones', 'Entregas'], 
+                                      title="Comportamiento de Llamadas vs Entregas (24h)",
+                                      markers=True, labels={'value': 'Cantidad', 'variable': 'Métrica'})
+                    fig_24h.update_traces(textposition="bottom right")
+                    st.plotly_chart(fig_24h, use_container_width=True)
+                else:
+                    st.warning("Se requieren datos de 'Entregados' para medir efectividad.")
+            st.stop()
+
+        elif hoja_seleccionada == "Análisis Cruzado (Auditoría)":
+            st.header("🔍 Auditoría: Gestión vs Telefonía")
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            df_t = datos.get("Twilio", pd.DataFrame())
+            df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
+
+            if not df_g.empty:
+                # Consolidar telefonía técnica
+                tels_tecnicos = set()
+                if not df_t.empty: tels_tecnicos.update(df_t['tel_link'].dropna().unique())
+                if not df_c.empty: tels_tecnicos.update(df_c['tel_link'].dropna().unique())
+                
+                df_g['Validado_Tecnico'] = df_g['tel_link'].isin(tels_tecnicos)
+                
+                audit_stats = df_g['Validado_Tecnico'].value_counts().reset_index()
+                audit_stats.columns = ['Estado', 'Cantidad']
+                audit_stats['Estado'] = audit_stats['Estado'].map({True: 'Con Respaldo Técnico', False: 'Sin Respaldo (Solo Manual)'})
+                
+                fig_audit = px.pie(audit_stats, names='Estado', values='Cantidad', 
+                                   title="Validación de Gestiones Manuales vs Logs de Telefonía")
+                fig_audit.update_traces(textinfo='percent+label')
+                st.plotly_chart(fig_audit, use_container_width=True)
+                
+                if False in df_g['Validado_Tecnico'].values:
+                    st.subheader("Gestiones Manuales sin registro de llamada detectado")
+                    st.dataframe(df_g[df_g['Validado_Tecnico'] == False][['Marca temporal', 'Nombre del o de la encuestadora', 'Número de teléfono sobre el que se realizó la gestión', 'Resultado de la gestión']].head(50))
+            st.stop()
 
         df_base = datos[hoja_seleccionada]
 
@@ -274,10 +347,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
         elif hoja_seleccionada == "Twilio":
             col1.metric("Total Llamadas Twilio", len(df_base))
             
-            if "Price" in df_base.columns:
-                total_cost = df_base["Price"].abs().sum()
-                col2.metric("Costo Total (USD)", f"${total_cost:.2f}")
-            
             if "Duration" in df_base.columns:
                 avg_dur = df_base["Duration"].mean()
                 col3.metric("Duración Promedio", f"{avg_dur:.1f}s")
@@ -292,6 +361,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 if col_agrupado in df_base.columns:
                     fig_res = px.pie(df_base, names=col_agrupado, 
                                      title="Distribución de Gestiones (Máximo 5 Categorías)")
+                    fig_res.update_traces(textinfo='percent+label')
                     st.plotly_chart(fig_res, use_container_width=True)
                     
                     with st.expander("Ver detalle de agrupación"):
@@ -306,7 +376,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     encuestadores = df_base[col_encuestador].value_counts().reset_index()
                     fig_enc = px.bar(encuestadores, x=col_encuestador, y="count",
                                      labels={'count': 'Número de Llamadas'},
-                                     color=col_encuestador)
+                                     color=col_encuestador, text_auto=True)
                     st.plotly_chart(fig_enc, use_container_width=True)
                 else:
                     st.info(f"La columna '{col_encuestador}' no está disponible en esta hoja.")
@@ -330,7 +400,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     
                     fig_const = px.bar(constructora_counts, x=col_constructora, y="count",
                                        title=f"{hoja_seleccionada} por Constructora (Top 5)",
-                                       labels={'count': 'Número de Entregados'})
+                                       labels={'count': 'Número de Entregados'}, text_auto=True)
                     st.plotly_chart(fig_const, use_container_width=True)
                 else:
                     st.info(f"La columna '{col_constructora}' no está disponible en esta hoja.")
@@ -342,7 +412,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     encuestadores = df_base[col_encuestador].value_counts().reset_index()
                     fig_enc = px.bar(encuestadores, x=col_encuestador, y="count",
                                      labels={'count': 'Número de Entregados'},
-                                     color=col_encuestador)
+                                     color=col_encuestador, text_auto=True)
                     st.plotly_chart(fig_enc, use_container_width=True)
                 else:
                     st.info(f"La columna '{col_encuestador}' no está disponible en esta hoja.")
@@ -363,11 +433,13 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     ciudad_counts.columns = [col_ciudad, 'count']
                     fig_ciudad = px.pie(ciudad_counts, names=col_ciudad, values='count',
                                         title=f"Distribución Geográfica (Top 5)")
+                    fig_ciudad.update_traces(textinfo='percent+label')
                     st.plotly_chart(fig_ciudad, use_container_width=True)
                 elif col_ciudad2 in df_base.columns:
                     ciudad2_counts = df_base[col_ciudad2].value_counts().reset_index()
                     fig_ciudad2 = px.pie(ciudad2_counts, names=col_ciudad2,
                                          title="Entregados por Región (Ciudad2)")
+                    fig_ciudad2.update_traces(textinfo='percent+label')
                     st.plotly_chart(fig_ciudad2, use_container_width=True)
                 else:
                     st.info("No se encontraron columnas de ciudad para analizar.")
@@ -396,7 +468,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     fig_prod = px.bar(prod_enc, x=col_enc, y=col_min,
                                       title="Total Minutos por Encuestador",
                                       labels={col_min: 'Minutos Totales', col_enc: 'Encuestador'},
-                                      color=col_min)
+                                      color=col_min, text_auto=True)
                     st.plotly_chart(fig_prod, use_container_width=True)
                 else:
                     st.info("Faltan columnas de encuestador o minutos para este análisis.")
@@ -408,10 +480,12 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 st.subheader("Estado Técnico de Llamadas")
                 if "Status" in df_base.columns:
                     fig_status = px.pie(df_base, names="Status", title="Efectividad de Conexión (Status)")
+                    fig_status.update_traces(textinfo='percent+label')
                     st.plotly_chart(fig_status, use_container_width=True)
                 
                 if "Direction" in df_base.columns:
-                    fig_dir = px.bar(df_base["Direction"].value_counts(), title="Dirección de las Llamadas")
+                    fig_dir = px.bar(df_base["Direction"].value_counts(), title="Dirección de las Llamadas", 
+                                     text_auto=True)
                     st.plotly_chart(fig_dir, use_container_width=True)
 
             with tab2:
