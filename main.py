@@ -244,22 +244,54 @@ if os.path.exists(NOMBRE_ARCHIVO):
             df_e = datos.get("Entregados", pd.DataFrame())
 
             if not df_g.empty and "Marca temporal" in df_g.columns:
-                df_g['Hora'] = df_g['Marca temporal'].dt.hour
+                # 1. Filtros de Análisis
+                st.subheader("Filtros de Análisis Temporal")
+                f1, f2, f3 = st.columns(3)
+                
+                with f1:
+                    list_enc = ["Todos"] + sorted(df_g["Nombre del o de la encuestadora"].dropna().unique().tolist())
+                    sel_enc = st.selectbox("Filtrar por Encuestador", list_enc)
+                with f2:
+                    list_ciu = ["Todas"] + sorted(df_g["Ciudad"].dropna().unique().tolist())
+                    sel_ciu = st.selectbox("Filtrar por Ciudad", list_ciu)
+                with f3:
+                    list_con = ["Todas"] + sorted(df_g["Constructora"].dropna().unique().tolist())
+                    sel_con = st.selectbox("Filtrar por Constructora", list_con)
+
+                # 2. Aplicar Filtros a la base de gestiones
+                df_g_f = df_g.copy()
+                if sel_enc != "Todos": df_g_f = df_g_f[df_g_f["Nombre del o de la encuestadora"] == sel_enc]
+                if sel_ciu != "Todas": df_g_f = df_g_f[df_g_f["Ciudad"] == sel_ciu]
+                if sel_con != "Todas": df_g_f = df_g_f[df_g_f["Constructora"] == sel_con]
+
+                df_g_f['Hora'] = df_g_f['Marca temporal'].dt.hour
+                
                 # Cruzar con entregados para medir efectividad real
                 if not df_e.empty and 'tel_link' in df_e.columns:
-                    df_merge = pd.merge(df_g, df_e[['tel_link', 'Nombre']], on='tel_link', how='left')
+                    df_merge = pd.merge(df_g_f, df_e[['tel_link', 'Nombre']], on='tel_link', how='left')
                     df_merge['Efectivo'] = df_merge['Nombre'].notna()
                     
+                    # Agrupar por hora
                     hourly_stats = df_merge.groupby('Hora').agg(
                         Gestiones=('Marca temporal', 'count'),
                         Entregas=('Efectivo', 'sum')
                     ).reset_index()
                     
+                    # Asegurar que las 24 horas estén presentes para que las líneas sean continuas
+                    horas_full = pd.DataFrame({'Hora': range(24)})
+                    hourly_stats = pd.merge(horas_full, hourly_stats, on='Hora', how='left').fillna(0)
+                    
                     fig_24h = px.line(hourly_stats, x='Hora', y=['Gestiones', 'Entregas'], 
-                                      title="Comportamiento de Llamadas vs Entregas (24h)",
-                                      markers=True, labels={'value': 'Cantidad', 'variable': 'Métrica'})
-                    fig_24h.update_traces(textposition="bottom right")
+                                      title=f"Efectividad Horaria - {sel_enc} | {sel_ciu} | {sel_con}",
+                                      markers=True, 
+                                      labels={'value': 'Cantidad', 'variable': 'Métrica', 'Hora': 'Hora del Día'},
+                                      color_discrete_map={'Gestiones': '#1f77b4', 'Entregas': '#ff7f0e'})
+                    
+                    fig_24h.update_layout(hovermode="x unified", xaxis=dict(tickmode='linear', tick0=0, dtick=1))
+                    fig_24h.update_traces(textposition="top center")
                     st.plotly_chart(fig_24h, use_container_width=True)
+                    
+                    st.info("💡 Consejo: Las líneas muestran la actividad de 0 a 23h. Si una línea está en 0, significa que no hubo actividad en esa franja para los filtros seleccionados.")
                 else:
                     st.warning("Se requieren datos de 'Entregados' para medir efectividad.")
             st.stop()
