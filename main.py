@@ -184,10 +184,62 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
     if datos:
         st.sidebar.header("Filtros Globales")
-        vistas = ["Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         hoja_seleccionada = st.sidebar.selectbox("Seleccione la fuente de datos:", vistas)
 
-        if hoja_seleccionada == "Resumen de KPIs Críticos":
+        if hoja_seleccionada == "Funnel de Conversión":
+            st.header("🏆 Embudo de Conversión de la Campaña")
+            st.write("Representación del ciclo de vida: desde el intento inicial hasta la entrega efectiva.")
+
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            df_c = datos.get("Contactados", pd.DataFrame())
+            df_e = datos.get("Entregados", pd.DataFrame())
+
+            if not df_g.empty and not df_c.empty and not df_e.empty:
+                # Preparar datos para el Funnel
+                etapas = ["Total Gestiones", "Contactos Efectivos", "Encuestas Entregadas"]
+                valores = [len(df_g), len(df_c), len(df_e)]
+                
+                fig_funnel = px.funnel(
+                    data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": valores}),
+                    x='Cantidad',
+                    y='Etapa',
+                    title="Ciclo de Vida del Proceso",
+                    color_discrete_sequence=px.colors.qualitative.Prism
+                )
+                st.plotly_chart(fig_funnel, use_container_width=True)
+
+                # Métricas de tasa de caída
+                c1, c2 = st.columns(2)
+                with c1:
+                    tasa_contacto = (len(df_c) / len(df_g)) * 100
+                    st.metric("Tasa de Contactabilidad (Base -> Contactos)", f"{tasa_contacto:.1f}%")
+                with c2:
+                    tasa_conversion = (len(df_e) / len(df_c)) * 100
+                    st.metric("Tasa de Efectividad (Contactos -> Entregas)", f"{tasa_conversion:.1f}%")
+                
+                st.divider()
+                st.subheader("Análisis por Segmento")
+                # Podemos ver el funnel por Ciudad si existe en todas las hojas
+                if "Ciudad" in df_g.columns:
+                    ciudad_sel = st.selectbox("Ver Funnel por Ciudad", ["Todas"] + sorted(df_g["Ciudad"].dropna().unique().tolist()))
+                    if ciudad_sel != "Todas":
+                        v_g = len(df_g[df_g["Ciudad"] == ciudad_sel])
+                        v_c = len(df_c[df_c["Ciudad"] == ciudad_sel])
+                        v_e = len(df_e[df_e["Ciudad"] == ciudad_sel])
+                        
+                        fig_funnel_sub = px.funnel(
+                            data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": [v_g, v_c, v_e]}),
+                            x='Cantidad', y='Etapa',
+                            title=f"Embudo en {ciudad_sel}"
+                        )
+                        st.plotly_chart(fig_funnel_sub, use_container_width=True)
+            else:
+                st.warning("Se requieren datos en las hojas 'Base_gestiones realizadas', 'Contactados' y 'Entregados' para generar el funnel.")
+            
+            st.stop()
+
+        elif hoja_seleccionada == "Resumen de KPIs Críticos":
             st.header("🚀 Indicadores Críticos de Campaña")
             
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
