@@ -149,7 +149,7 @@ def cargar_y_limpiar_datos(ruta_archivo):
                             # Reordenamos de "HH:MM:SS TZ YYYY-MM-DD" a "YYYY-MM-DD HH:MM:SS"
                             # Esto asegura que Pandas lo reconozca como una fecha válida
                             df[col_fecha] = df[col_fecha].astype(str).str.strip().str.replace(
-                                r'(\d{2}:\d{2}:\d{2})\s+\S+\s+(\d{4}-\d{2}-\d{2})', 
+                                r'(\d{1,2}:\d{1,2}:\d{1,2})\s+\S+\s+(\d{4}-\d{1,2}-\d{1,2})', 
                                 r'\2 \1', 
                                 regex=True
                             )
@@ -851,6 +851,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                                          markers=True, text="Cantidad")
                         fig_hour.update_traces(textposition="top center")
                         st.plotly_chart(fig_hour, use_container_width=True)
+                    else:
+                        st.warning("No se encontraron datos válidos en 'Start Time' para generar el gráfico horario.")
 
         # Diccionario original (como referencia técnica)
         with st.expander("Ver Diccionario de Datos Técnico"):
