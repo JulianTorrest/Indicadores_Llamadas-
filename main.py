@@ -22,7 +22,9 @@ def limpiar_telefono(tel):
 
 def agrupar_resultado_gestion(valor):
     valor = str(valor).lower()
-    if "responde la encuesta" in valor:
+    if "responde la encuesta" in valor and "incompleta" not in valor: # Éxito total
+        return "Éxito Total"
+    elif "responde la encuesta por forms" in valor: # También es éxito total
         return "Éxito Total"
     elif "encuesta incompleta" in valor:
         return "Parcial / Incompleta"
@@ -184,7 +186,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
     if datos:
         st.sidebar.header("Filtros Globales")
-        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         hoja_seleccionada = st.sidebar.selectbox("Seleccione la fuente de datos:", vistas)
 
         if hoja_seleccionada == "Funnel de Conversión":
@@ -193,12 +195,14 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
             df_c = datos.get("Contactados", pd.DataFrame())
-            df_e = datos.get("Entregados", pd.DataFrame())
 
-            if not df_g.empty and not df_c.empty and not df_e.empty:
+            if not df_g.empty and not df_c.empty:
+                # Calcular Encuestas Exitosas desde df_g
+                exitos_g = len(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
+
                 # Preparar datos para el Funnel
-                etapas = ["Total Gestiones", "Contactos Efectivos", "Encuestas Entregadas"]
-                valores = [len(df_g), len(df_c), len(df_e)]
+                etapas = ["Total Gestiones", "Contactos Efectivos", "Encuestas Exitosas"]
+                valores = [len(df_g), len(df_c), exitos_g]
                 
                 fig_funnel = px.funnel(
                     data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": valores}),
@@ -215,27 +219,28 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     tasa_contacto = (len(df_c) / len(df_g)) * 100
                     st.metric("Tasa de Contactabilidad (Base -> Contactos)", f"{tasa_contacto:.1f}%")
                 with c2:
-                    tasa_conversion = (len(df_e) / len(df_c)) * 100
-                    st.metric("Tasa de Efectividad (Contactos -> Entregas)", f"{tasa_conversion:.1f}%")
+                    tasa_conversion = (exitos_g / len(df_c)) * 100 if len(df_c) > 0 else 0
+                    st.metric("Tasa de Efectividad (Contactos -> Éxito)", f"{tasa_conversion:.1f}%")
                 
                 st.divider()
                 st.subheader("Análisis por Segmento")
                 # Podemos ver el funnel por Ciudad si existe en todas las hojas
-                if "Ciudad" in df_g.columns:
+                if "Ciudad" in df_g.columns and "Ciudad" in df_c.columns: # Asegurar que Ciudad esté en ambas para filtrar
                     ciudad_sel = st.selectbox("Ver Funnel por Ciudad", ["Todas"] + sorted(df_g["Ciudad"].dropna().unique().tolist()))
                     if ciudad_sel != "Todas":
                         v_g = len(df_g[df_g["Ciudad"] == ciudad_sel])
                         v_c = len(df_c[df_c["Ciudad"] == ciudad_sel])
-                        v_e = len(df_e[df_e["Ciudad"] == ciudad_sel])
+                        # Recalcular exitos para el segmento
+                        v_e_segment = len(df_g[(df_g["Ciudad"] == ciudad_sel) & (df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"]))])
                         
-                        fig_funnel_sub = px.funnel(
-                            data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": [v_g, v_c, v_e]}),
+                        fig_funnel_sub = px.funnel( # Usar v_e_segment
+                            data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": [v_g, v_c, v_e_segment]}),
                             x='Cantidad', y='Etapa',
                             title=f"Embudo en {ciudad_sel}"
                         )
                         st.plotly_chart(fig_funnel_sub, use_container_width=True)
             else:
-                st.warning("Se requieren datos en las hojas 'Base_gestiones realizadas', 'Contactados' y 'Entregados' para generar el funnel.")
+                st.warning("Se requieren datos en las hojas 'Base_gestiones realizadas' y 'Contactados' para generar el funnel.")
             
             st.stop()
 
@@ -310,7 +315,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
         elif hoja_seleccionada == "Análisis de Persistencia y Éxito":
             st.header("🎯 Análisis de Persistencia y Factores de Éxito")
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
-            df_e = datos.get("Entregados", pd.DataFrame())
             df_t = datos.get("Twilio", pd.DataFrame())
             df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
 
@@ -318,9 +322,9 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # 1. Análisis de Intentos
                 intentos_por_tel = df_g.groupby('tel_link').size().reset_index(name='Intentos')
                 
-                # Identificar si el número terminó en entrega (éxito)
-                if not df_e.empty:
-                    tels_exito = set(df_e['tel_link'].dropna().unique())
+                # Identificar si el número terminó en éxito (basado en df_g)
+                if "Resultado de la gestión (Agrupado)" in df_g.columns:
+                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
                     intentos_por_tel['Resultado Final'] = intentos_por_tel['tel_link'].apply(
                         lambda x: 'Exitoso (Entrega)' if x in tels_exito else 'No Efectivo'
                     )
@@ -374,10 +378,10 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 st.divider()
                 st.subheader("📅 ¿Cuándo es mejor llamar?")
                 if 'Dia_Semana' in df_g.columns and 'Hora' in df_g.columns:
-                    # Marcamos cuales fueron exitosas
-                    tels_exito = set(df_e['tel_link'].dropna().unique()) if not df_e.empty else set()
-                    df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
-                    
+                    # Marcamos cuales fueron exitosas (basado en df_g)
+                    if "Resultado de la gestión (Agrupado)" in df_g.columns:
+                        df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
+
                     # Pivot table para Heatmap
                     heatmap_data = df_g.groupby(['Dia_Semana', 'Hora'])['Es_Exito'].mean().reset_index()
                     heatmap_data['Es_Exito'] *= 100 # Convertir a porcentaje
@@ -385,7 +389,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     # Ordenar días correctamente
                     fig_heat = px.density_heatmap(heatmap_data, x='Hora', y='Dia_Semana', z='Es_Exito',
                                                   color_continuous_scale='Viridis',
-                                                  title="Mapa de Calor: % de Efectividad (Conversión a Entrega)",
+                                                  title="Mapa de Calor: % de Efectividad (Conversión a Encuesta Exitosa)",
                                                   labels={'Es_Exito': '% Efectividad', 'Hora': 'Hora del Día', 'Dia_Semana': 'Día'},
                                                   category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"]})
                     st.plotly_chart(fig_heat, use_container_width=True)
@@ -401,7 +405,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
         elif hoja_seleccionada == "Comportamiento 24h y Efectividad":
             st.header("🕒 Comportamiento Temporal y Efectividad")
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
-            df_e = datos.get("Entregados", pd.DataFrame())
 
             if not df_g.empty and "Marca temporal" in df_g.columns:
                 # 1. Filtros de Análisis
@@ -427,9 +430,9 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 df_g_f['Hora'] = df_g_f['Marca temporal'].dt.hour
                 
                 # Cruzar con entregados para medir efectividad real
-                if not df_e.empty and 'tel_link' in df_e.columns:
-                    df_merge = pd.merge(df_g_f, df_e[['tel_link', 'Nombre']], on='tel_link', how='left')
-                    df_merge['Efectivo'] = df_merge['Nombre'].notna()
+                if "Resultado de la gestión (Agrupado)" in df_g_f.columns:
+                    # Determinar 'Efectivo' basado en df_g_f's success criteria
+                    df_g_f['Efectivo'] = df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])
                     
                     # Agrupar por hora
                     hourly_stats = df_merge.groupby('Hora').agg(
