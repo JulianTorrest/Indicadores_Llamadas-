@@ -1,6 +1,5 @@
 import pandas as pd
-import json
-import os
+import streamlit as st
 
 def obtener_diccionario_campos(ruta_archivo):
     """
@@ -22,24 +21,24 @@ def obtener_diccionario_campos(ruta_archivo):
         return diccionario_campos
 
     except Exception as e:
-        return f"Error al procesar el archivo: {e}"
+        st.error(f"Error al procesar el archivo: {e}")
+        return None
 
-# Configuración de la ruta
-# Para Streamlit Cloud, asumiendo que el archivo está en la raíz del repo:
-nombre_archivo = "Seguimiento encuestas consolidado.xlsx"
+st.set_page_config(page_title="Analizador de Campañas", layout="wide")
+st.title("📊 Diccionario de Campos de Campaña")
+st.write("Carga el archivo Excel para inspeccionar la estructura de las hojas.")
 
+archivo_subido = st.file_uploader("Selecciona el archivo 'Seguimiento encuestas consolidado.xlsx'", type=["xlsx"])
 
-if os.path.exists(nombre_archivo):
-    campos_hojas = obtener_diccionario_campos(nombre_archivo)
+if archivo_subido is not None:
+    campos_hojas = obtener_diccionario_campos(archivo_subido)
     
-    # Guardar el diccionario en un archivo JSON para persistencia
-    with open('estructura_campos.json', 'w', encoding='utf-8') as f:
-        json.dump(campos_hojas, f, ensure_ascii=False, indent=4)
-    
-    print("Diccionario de campos generado y guardado en 'estructura_campos.json'")
-    
-    # Ejemplo de cómo se ve el diccionario
-    for hoja, columnas in campos_hojas.items():
-        print(f"Hoja: {hoja} | Cantidad de columnas: {len(columnas)}")
-else:
-    print(f"El archivo {nombre_archivo} no fue encontrado.")
+    if campos_hojas:
+        st.subheader("Estructura detectada (Formato JSON)")
+        st.json(campos_hojas)
+        
+        st.subheader("Desglose por Hoja")
+        for hoja, columnas in campos_hojas.items():
+            with st.expander(f"Hoja: {hoja}"):
+                st.write(f"**Total de campos:** {len(columnas)}")
+                st.write(columnas)
