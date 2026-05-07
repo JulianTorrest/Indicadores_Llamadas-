@@ -432,23 +432,35 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # 3. Efectividad por Día y Hora
                 st.divider()
                 st.subheader("📅 ¿Cuándo es mejor llamar?")
-                if 'Dia_Semana' in df_g.columns and 'Hora' in df_g.columns:
+                if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns
                     # Marcamos cuales fueron exitosas (basado en df_g)
                     if "Resultado de la gestión (Agrupado)" in df_g.columns:
                         df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
 
                     # Pivot table para Heatmap
-                    heatmap_data = df_g.groupby(['Dia_Semana', 'Hora'])['Es_Exito'].mean().reset_index()
+                    heatmap_data = df_g.groupby(['Dia_Semana', 'Franja Horaria'])['Es_Exito'].mean().reset_index()
                     heatmap_data['Es_Exito'] *= 100 # Convertir a porcentaje
+
+                    # Definir el orden de las franjas horarias para el eje X
+                    franja_horaria_order = ["00:00 a 03:00", "03:00 a 06:00", "06:00 a 09:00", "09:00 a 12:00", 
+                    "12:00 a 15:00", "15:00 a 18:00", "18:00 a 21:00", "21:00 a 00:00"]
+
+
+
                     
                     # Ordenar días correctamente
-                    fig_heat = px.density_heatmap(heatmap_data, x='Hora', y='Dia_Semana', z='Es_Exito',
+                    fig_heat = px.density_heatmap(heatmap_data, x='Franja Horaria', y='Dia_Semana', z='Es_Exito',
                                                   color_continuous_scale='Viridis',
                                                   title="Mapa de Calor: % de Efectividad (Conversión a Encuesta Exitosa)",
-                                                  labels={'Es_Exito': '% Efectividad', 'Hora': 'Hora del Día', 'Dia_Semana': 'Día'},
-                                                  category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"]})
+                                                  labels={'Es_Exito': '% Efectividad', 'Franja Horaria': 'Franja Horaria del Día', 'Dia_Semana': 'Día'},
+                                                  category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"],
+
                     st.plotly_chart(fig_heat, use_container_width=True)
-                    st.caption("Los colores más claros (amarillo) indican horas y días con mayor probabilidad de que la gestión termine en una Entrega.")
+                    st.caption("Los colores más claros (amarillo) indican franjas horarias y días con mayor probabilidad de que la gestión termine en una Encuesta Exitosa. La efectividad se calcula como el promedio de éxitos (0% a 100%).")
+
+                else:
+                    st.warning("Las columnas 'Dia_Semana' o 'Franja Horaria' no están disponibles para el análisis del mapa de calor.")
+
                 
                 # 4. Análisis específico de "Llamar después" (Seguimiento)
                 st.subheader("🔄 Evolución de los casos 'Llamar Después'")
