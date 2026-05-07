@@ -682,9 +682,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 fig_audit.update_traces(textinfo='percent+label')
                 st.plotly_chart(fig_audit, use_container_width=True)
                 
-                if False in df_g['Validado_Tecnico'].values:
-                    st.subheader("Gestiones Manuales sin registro de llamada detectado")
-                    st.dataframe(df_g[df_g['Validado_Tecnico'] == False][['Marca temporal', 'Nombre del o de la encuestadora', 'Número de teléfono sobre el que se realizó la gestión', 'Resultado de la gestión']].head(50))
             st.stop()
 
         df_base = datos[hoja_seleccionada]
