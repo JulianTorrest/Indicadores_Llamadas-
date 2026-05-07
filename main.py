@@ -137,13 +137,18 @@ def cargar_y_limpiar_datos(ruta_archivo):
 
                 # Estandarizar fecha de llamada
                 if "fecha_llamada" in df.columns:
-                    df["fecha_llamada"] = pd.to_datetime(df["fecha_llamada"], errors='coerce')
+                    df["fecha_llamada"] = pd.to_datetime(df["fecha_llamada"], errors='coerce', dayfirst=True)
 
             # Limpieza específica para la hoja 'Twilio'
             elif nombre_hoja == "Twilio":
                 # Estandarizar fechas
                 for col_fecha in ["Start Time", "End Time", "Date Created"]:
                     if col_fecha in df.columns:
+                        # Manejo de formato: 12:51:15 PDT 2026-04-13
+                        # Removemos la zona horaria (3-4 letras mayúsculas entre espacios) para facilitar el parseo
+                        if df[col_fecha].dtype == 'object':
+                            df[col_fecha] = df[col_fecha].str.replace(r'\s[A-Z]{3,4}\s', ' ', regex=True)
+                        
                         df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
                 
                 if "To" in df.columns:
