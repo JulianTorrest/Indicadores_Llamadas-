@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
+import os
 
+@st.cache_data
 def obtener_diccionario_campos(ruta_archivo):
     """
     Lee un archivo Excel y devuelve un diccionario donde las llaves son 
@@ -25,13 +27,15 @@ def obtener_diccionario_campos(ruta_archivo):
         return None
 
 st.set_page_config(page_title="Analizador de Campañas", layout="wide")
-st.title("📊 Diccionario de Campos de Campaña")
-st.write("Carga el archivo Excel para inspeccionar la estructura de las hojas.")
 
-archivo_subido = st.file_uploader("Selecciona el archivo 'Seguimiento encuestas consolidado.xlsx'", type=["xlsx"])
+st.title("📊 Estructura de Campañas de Llamadas")
+st.info("Leyendo datos directamente desde el repositorio de GitHub.")
 
-if archivo_subido is not None:
-    campos_hojas = obtener_diccionario_campos(archivo_subido)
+# Al estar en Streamlit Cloud, usamos el nombre del archivo directamente si está en la raíz
+NOMBRE_ARCHIVO = "Seguimiento encuestas consolidado.xlsx"
+
+if os.path.exists(NOMBRE_ARCHIVO):
+    campos_hojas = obtener_diccionario_campos(NOMBRE_ARCHIVO)
     
     if campos_hojas:
         st.subheader("Estructura detectada (Formato JSON)")
@@ -42,3 +46,5 @@ if archivo_subido is not None:
             with st.expander(f"Hoja: {hoja}"):
                 st.write(f"**Total de campos:** {len(columnas)}")
                 st.write(columnas)
+else:
+    st.error(f"No se encontró el archivo '{NOMBRE_ARCHIVO}' en el repositorio.")
