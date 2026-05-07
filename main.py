@@ -452,8 +452,51 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 
                 # 4. Análisis específico de "Llamar después" (Seguimiento)
                 st.subheader("🔄 Evolución de los casos 'Llamar Después'")
-                casos_seguimiento = df_g[df_g['Resultado de la gestión (Agrupado)'] == 'Seguimiento']['tel_link'].nunique()
-                st.write(f"Número de contactos únicos que pidieron ser llamados después: **{casos_seguimiento}**")
+                
+                # Identificar el primer 'Seguimiento' por teléfono
+                df_seg = df_g[df_g['Resultado de la gestión (Agrupado)'] == 'Seguimiento'].sort_values('Marca temporal')
+                primer_seguimiento = df_seg.groupby('tel_link')['Marca temporal'].min().reset_index()
+                primer_seguimiento.columns = ['tel_link', 'Fecha_Primer_Seguimiento']
+                
+                # Unir con la base general para ver qué pasó después
+                df_post = pd.merge(df_g, primer_seguimiento, on='tel_link')
+                df_post = df_post[df_post['Marca temporal'] > df_post['Fecha_Primer_Seguimiento']]
+                
+                num_contactos_seg = primer_seguimiento['tel_link'].nunique()
+                st.write(f"Número de contactos únicos que pidieron ser llamados después: **{num_contactos_seg}**")
+                
+                if not df_post.empty:
+                    # Obtener el último estado de esos contactos
+                    ultimo_estado = df_post.sort_values('Marca temporal').groupby('tel_link').last().reset_index()
+                    conversion_seg = ultimo_estado['Resultado de la gestión (Agrupado)'].value_counts().reset_index()
+                    conversion_seg.columns = ['Resultado Posterior', 'Cantidad']
+                    
+                    c_seg1, c_seg2 = st.columns([1, 2])
+                    with c_seg1:
+                        exitos_pos = conversion_seg[conversion_seg['Resultado Posterior'].isin(["Éxito Total", "Parcial / Incompleta"])]['Cantidad'].sum()
+                        tasa_recuperacion = (exitos_pos / num_contactos_seg) * 100
+                        st.metric("Tasa de Recuperación", f"{tasa_recuperacion:.1f}%", 
+                                  help="Porcentaje de casos que pidieron 'Llamar después' y terminaron en Éxito")
+                        st.write(f"De los {num_contactos_seg} casos, **{exitos_pos}** se convirtieron en éxito finalmente.")
+
+                    with c_seg2:
+                        fig_post = px.pie(conversion_seg, names='Resultado Posterior', values='Cantidad',
+                                          title="Resultado Final de los contactos que pidieron Seguimiento",
+                                          color_discrete_sequence=px.colors.qualitative.Pastel)
+                        fig_post.update_traces(textinfo='percent+label')
+                        st.plotly_chart(fig_post, use_container_width=True)
+                    
+                    st.write("### ¿En qué momento se convierte en éxito?")
+                    st.info("""
+                    Un caso de **'Llamar Después'** se convierte en éxito cuando, tras haber sido marcado como 'Seguimiento', 
+                    el encuestador realiza un nuevo intento y el resultado de esa nueva gestión se registra como 
+                    **'Contesta y responde la encuesta'** o **'Contesta y responde por forms'**. 
+                    
+                    En el gráfico anterior, la categoría **'Seguimiento'** en el resultado posterior indica personas que 
+                    volvieron a solicitar ser llamadas después en su último contacto.
+                    """)
+                else:
+                    st.warning("No se detectan intentos posteriores a la primera solicitud de seguimiento todavía.")
             
             st.stop()
 
