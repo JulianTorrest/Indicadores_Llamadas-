@@ -830,10 +830,18 @@ if os.path.exists(NOMBRE_ARCHIVO):
             with tab3:
                 st.subheader("Actividad por Hora (Picos de Llamadas)")
                 if "Start Time" in df_base.columns:
-                    df_base["Hora"] = df_base["Start Time"].dt.hour
-                    hourly_calls = df_base.groupby("Hora").size().reset_index(name="Cantidad")
-                    fig_hour = px.line(hourly_calls, x="Hora", y="Cantidad", title="Volumen de Llamadas por Hora del Día", markers=True)
-                    st.plotly_chart(fig_hour, use_container_width=True)
+                    # Filtramos filas sin fecha válida para evitar que el gráfico salga vacío
+                    df_hora = df_base.dropna(subset=["Start Time"]).copy()
+                    if not df_hora.empty:
+                        df_hora["Hora"] = df_hora["Start Time"].dt.hour
+                        hourly_calls = df_hora.groupby("Hora").size().reset_index(name="Cantidad")
+                        hourly_calls = hourly_calls.sort_values("Hora")
+                        
+                        fig_hour = px.line(hourly_calls, x="Hora", y="Cantidad", 
+                                         title="Volumen de Llamadas por Hora del Día", 
+                                         markers=True, text="Cantidad")
+                        fig_hour.update_traces(textposition="top center")
+                        st.plotly_chart(fig_hour, use_container_width=True)
 
         # Diccionario original (como referencia técnica)
         with st.expander("Ver Diccionario de Datos Técnico"):
