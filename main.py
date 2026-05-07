@@ -36,8 +36,8 @@ def agrupar_resultado_gestion(valor):
         if any(x in v for x in ["respond", "complet", "forms", "exito"]):
             return "Éxito Total"
 
-    # 3. No Contactado
-    if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest", "no contactado"]):
+    # 3. No Contactado -> Mapeo forzado a "No Contestaron"
+    if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest", "no contactado", "no contestaron"]):
         return "No Contestaron"
 
     # 4. Rechazo
