@@ -485,16 +485,26 @@ if os.path.exists(NOMBRE_ARCHIVO):
                                           color_discrete_sequence=px.colors.qualitative.Pastel)
                         fig_post.update_traces(textinfo='percent+label')
                         st.plotly_chart(fig_post, use_container_width=True)
-                    
-                    st.write("### ¿En qué momento se convierte en éxito?")
-                    st.info("""
-                    Un caso de **'Llamar Después'** se convierte en éxito cuando, tras haber sido marcado como 'Seguimiento', 
-                    el encuestador realiza un nuevo intento y el resultado de esa nueva gestión se registra como 
-                    **'Contesta y responde la encuesta'** o **'Contesta y responde por forms'**. 
-                    
-                    En el gráfico anterior, la categoría **'Seguimiento'** en el resultado posterior indica personas que 
-                    volvieron a solicitar ser llamadas después en su último contacto.
-                    """)
+
+                    # Nuevo gráfico: ¿En qué intento se logra el éxito?
+                    st.write("### 📈 Esfuerzo de Conversión Post-Seguimiento")
+                    # Filtrar gestiones de éxito que ocurrieron después del primer seguimiento
+                    df_exitos_post = df_post[df_post['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]
+                    if not df_exitos_post.empty:
+                        # Encontrar la fecha del primer éxito post-seguimiento
+                        primer_exito_post = df_exitos_post.sort_values('Marca temporal').groupby('tel_link')['Marca temporal'].min().reset_index()
+                        primer_exito_post.columns = ['tel_link', 'Fecha_Primer_Exito']
+                        
+                        # Contar intentos ocurridos entre el primer seguimiento y el primer éxito
+                        df_camino_exito = pd.merge(df_post, primer_exito_post, on='tel_link')
+                        df_camino_exito = df_camino_exito[df_camino_exito['Marca temporal'] <= df_camino_exito['Fecha_Primer_Exito']]
+                        intentos_hasta_exito = df_camino_exito.groupby('tel_link').size().reset_index(name='Intentos_Adicionales')
+                        
+                        fig_momento = px.bar(intentos_hasta_exito['Intentos_Adicionales'].value_counts().sort_index(),
+                                            title="¿Cuántas llamadas adicionales toma convertir un 'Llamar Después' en Éxito?",
+                                            labels={'index': 'Nro de Intentos Adicionales', 'value': 'Cantidad de Contactos'},
+                                            text_auto=True)
+                        st.plotly_chart(fig_momento, use_container_width=True)
                 else:
                     st.warning("No se detectan intentos posteriores a la primera solicitud de seguimiento todavía.")
             
