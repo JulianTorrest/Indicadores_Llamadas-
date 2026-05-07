@@ -74,7 +74,7 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 
                 # Estandarizar fecha, día y teléfono
                 if "Marca temporal" in df.columns:
-                    df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce')
+                    df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce', dayfirst=True)
                     df["Dia_Semana"] = df["Marca temporal"].dt.day_name().map({
                         'Monday': '1. Lunes', 'Tuesday': '2. Martes', 'Wednesday': '3. Miércoles',
                         'Thursday': '4. Jueves', 'Friday': '5. Viernes', 'Saturday': '6. Sábado', 'Sunday': '7. Domingo'
