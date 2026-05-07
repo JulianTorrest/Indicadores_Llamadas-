@@ -783,7 +783,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.info("No se encontraron columnas de ciudad para analizar.")
 
         elif hoja_seleccionada == "Camara_llamadas_salientes":
-            tab1, tab2 = st.tabs(["Estadísticas de Llamadas", "Productividad por Encuestador"])
+            tab1, tab2, tab3 = st.tabs(["Estadísticas de Llamadas", "Productividad por Encuestador", "Distribución Horaria"])
 
             with tab1:
                 st.subheader("Análisis de Tráfico Telefónico")
@@ -810,6 +810,45 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.plotly_chart(fig_prod, use_container_width=True)
                 else:
                     st.info("Faltan columnas de encuestador o minutos para este análisis.")
+
+            with tab3:
+                st.subheader("Actividad por Hora (Picos de Llamadas)")
+                if "fecha_llamada" in df_base.columns:
+                    # Filtramos filas sin fecha válida para evitar que el gráfico salga vacío
+                    df_hora = df_base.dropna(subset=["fecha_llamada"]).copy()
+                    if not df_hora.empty:
+                        df_hora["Hora"] = df_hora["fecha_llamada"].dt.hour
+                        
+                        # Identificar llamadas exitosas cruzando con Base de Gestiones
+                        df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                        tels_exito = set()
+                        if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
+                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
+                        
+                        df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
+                        
+                        hourly_stats = df_hora.groupby("Hora").agg(
+                            Total_Llamadas=("Hora", "count"),
+                            Llamadas_Exitosas=("Es_Exito", "sum")
+                        ).reset_index()
+                        
+                        # Asegurar que las 24 horas estén presentes para que las líneas sean continuas
+                        horas_full = pd.DataFrame({'Hora': range(24)})
+                        hourly_calls = pd.merge(horas_full, hourly_stats, on='Hora', how='left').fillna(0)
+                        hourly_calls = hourly_calls.sort_values("Hora")
+
+                        # Transformar a formato largo para mostrar etiquetas en ambas líneas
+                        hourly_calls = hourly_calls.melt(id_vars='Hora', var_name='Métrica', value_name='Cantidad')
+                        
+                        fig_hour = px.line(hourly_calls, x="Hora", y="Cantidad", color="Métrica",
+                                         title="Volumen de Llamadas vs Éxitos por Hora del Día (Cámara)", 
+                                         markers=True, text="Cantidad",
+                                         color_discrete_map={'Total_Llamadas': '#1f77b4', 'Llamadas_Exitosas': '#ff7f0e'})
+                        
+                        fig_hour.update_traces(textposition="top center")
+                        st.plotly_chart(fig_hour, use_container_width=True)
+                    else:
+                        st.warning("No se encontraron datos válidos en 'fecha_llamada' para generar el gráfico horario.")
 
         elif hoja_seleccionada == "Twilio":
             tab1, tab2 = st.tabs(["Estado y Calidad", "Distribución Horaria"])
