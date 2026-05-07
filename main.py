@@ -212,8 +212,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # Nota: Este gráfico asume que podemos cruzar por nombre, 
                 # para una versión pro, necesitaríamos una tabla de mapeo entre Nombres y Números de Twilio.
                 st.info("Para un cruce exacto por encuestador, se recomienda vincular los números de 'From' en Twilio con los nombres.")
-            
-            return # Finaliza la vista de KPIs para no mostrar el resto
+
+            st.stop() # Finaliza la vista de KPIs para no mostrar el resto
 
         df_base = datos[hoja_seleccionada]
 
