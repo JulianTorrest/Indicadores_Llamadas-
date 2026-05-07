@@ -65,7 +65,11 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 col_ciudad = "Ciudad"
                 if col_ciudad in df.columns:
                     df[col_ciudad] = df[col_ciudad].apply(limpiar_texto)
-                    df[col_ciudad] = df[col_ciudad].replace({"Bogota D.c.": "Bogota"}) # Unificar "Bogota D.C."
+                    # Unificación robusta de Bogota
+                    df[col_ciudad] = df[col_ciudad].replace({
+                        "Bogota D.C.": "Bogota",
+                        "Bogota D.C": "Bogota"
+                    })
                 
                 # Estandarizar Ciudad2
                 col_ciudad2 = "Ciudad2"
@@ -314,9 +318,18 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 st.subheader(f"Análisis General: {hoja_seleccionada}")
                 col_constructora = "Constructora"
                 if col_constructora in df_base.columns:
-                    constructora_counts = df_base[col_constructora].value_counts().reset_index()
+                    counts = df_base[col_constructora].value_counts()
+                    # Agrupación si supera 5 categorías
+                    if len(counts) > 5:
+                        top_5 = counts.head(5)
+                        otros = pd.Series({'Otros': counts.iloc[5:].sum()})
+                        counts = pd.concat([top_5, otros])
+                    
+                    constructora_counts = counts.reset_index()
+                    constructora_counts.columns = [col_constructora, 'count']
+                    
                     fig_const = px.bar(constructora_counts, x=col_constructora, y="count",
-                                       title="Entregados por Constructora",
+                                       title=f"{hoja_seleccionada} por Constructora (Top 5)",
                                        labels={'count': 'Número de Entregados'})
                     st.plotly_chart(fig_const, use_container_width=True)
                 else:
@@ -339,9 +352,17 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 col_ciudad = "Ciudad"
                 col_ciudad2 = "Ciudad2"
                 if col_ciudad in df_base.columns:
-                    ciudad_counts = df_base[col_ciudad].value_counts().reset_index()
-                    fig_ciudad = px.pie(ciudad_counts, names=col_ciudad,
-                                        title="Entregados por Ciudad")
+                    counts = df_base[col_ciudad].value_counts()
+                    # Agrupación si supera 5 ciudades
+                    if len(counts) > 5:
+                        top_5 = counts.head(5)
+                        otros = pd.Series({'Otros': counts.iloc[5:].sum()})
+                        counts = pd.concat([top_5, otros])
+                    
+                    ciudad_counts = counts.reset_index()
+                    ciudad_counts.columns = [col_ciudad, 'count']
+                    fig_ciudad = px.pie(ciudad_counts, names=col_ciudad, values='count',
+                                        title=f"Distribución Geográfica (Top 5)")
                     st.plotly_chart(fig_ciudad, use_container_width=True)
                 elif col_ciudad2 in df_base.columns:
                     ciudad2_counts = df_base[col_ciudad2].value_counts().reset_index()
