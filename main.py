@@ -720,7 +720,10 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.info(f"La columna '{col_encuestador}' no está disponible en esta hoja.")
 
         elif hoja_seleccionada in ["Entregados", "Correo Masivo"]:
-            tab1, tab2, tab3 = st.tabs(["Análisis General", "Productividad Encuestadores", "Distribución Geográfica"])
+            tab_labels = ["Análisis General", "Productividad Encuestadores", "Distribución Geográfica"]
+            if hoja_seleccionada == "Correo Masivo":
+                tab_labels[1] = "Análisis por Proyecto/Ciudad"
+            tab1, tab2, tab3 = st.tabs(tab_labels)
 
             with tab1:
                 st.subheader(f"Análisis General: {hoja_seleccionada}")
@@ -744,16 +747,39 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.info(f"La columna '{col_constructora}' no está disponible en esta hoja.")
 
             with tab2:
-                st.subheader("Entregados por Encuestador (Nombres Limpios)")
-                col_encuestador = "Encuestador"
-                if col_encuestador in df_base.columns:
-                    encuestadores = df_base[col_encuestador].value_counts().reset_index()
-                    fig_enc = px.bar(encuestadores, x=col_encuestador, y="count",
-                                     labels={'count': 'Número de Entregados'},
-                                     color=col_encuestador, text_auto=True)
-                    st.plotly_chart(fig_enc, use_container_width=True)
+                if hoja_seleccionada == "Correo Masivo":
+                    st.subheader("Correo Masivo por Proyecto")
+                    col_proyecto = "Proyecto"
+                    if col_proyecto in df_base.columns:
+                        proyectos = df_base[col_proyecto].value_counts().reset_index()
+                        fig_proj = px.bar(proyectos, x=col_proyecto, y="count",
+                                         labels={'count': 'Número de Registros'},
+                                         color=col_proyecto, text_auto=True)
+                        st.plotly_chart(fig_proj, use_container_width=True)
+                    else:
+                        st.info(f"La columna '{col_proyecto}' no está disponible en esta hoja.")
+
+                    st.subheader("Correo Masivo por Ciudad")
+                    col_ciudad_bar = "Ciudad"
+                    if col_ciudad_bar in df_base.columns:
+                        ciudades = df_base[col_ciudad_bar].value_counts().reset_index()
+                        fig_city = px.bar(ciudades, x=col_ciudad_bar, y="count",
+                                         labels={'count': 'Número de Registros'},
+                                         color=col_ciudad_bar, text_auto=True)
+                        st.plotly_chart(fig_city, use_container_width=True)
+                    else:
+                        st.info(f"La columna '{col_ciudad_bar}' no está disponible en esta hoja.")
                 else:
-                    st.info(f"La columna '{col_encuestador}' no está disponible en esta hoja.")
+                    st.subheader("Entregados por Encuestador (Nombres Limpios)")
+                    col_encuestador = "Encuestador"
+                    if col_encuestador in df_base.columns:
+                        encuestadores = df_base[col_encuestador].value_counts().reset_index()
+                        fig_enc = px.bar(encuestadores, x=col_encuestador, y="count",
+                                         labels={'count': 'Número de Entregados'},
+                                         color=col_encuestador, text_auto=True)
+                        st.plotly_chart(fig_enc, use_container_width=True)
+                    else:
+                        st.info(f"La columna '{col_encuestador}' no está disponible en esta hoja.")
 
             with tab3:
                 st.subheader("Distribución Geográfica de Entregados")
