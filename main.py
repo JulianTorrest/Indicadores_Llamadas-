@@ -80,6 +80,11 @@ def cargar_y_limpiar_datos(ruta_archivo):
                         'Thursday': '4. Jueves', 'Friday': '5. Viernes', 'Saturday': '6. Sábado', 'Sunday': '7. Domingo'
                     })
                     df["Hora"] = df["Marca temporal"].dt.hour
+                    # Crear franjas horarias de 3 horas
+                    bins = [0, 3, 6, 9, 12, 15, 18, 21, 24]
+                    labels = ["00:00 a 03:00", "03:00 a 06:00", "06:00 a 09:00", "09:00 a 12:00", 
+                              "12:00 a 15:00", "15:00 a 18:00", "18:00 a 21:00", "21:00 a 00:00"]
+                    df["Franja Horaria"] = pd.cut(df["Hora"], bins=bins, labels=labels, right=False)
                 
                 col_tel = "Número de teléfono sobre el que se realizó la gestión"
                 if col_tel in df.columns:
@@ -213,12 +218,40 @@ if os.path.exists(NOMBRE_ARCHIVO):
             df_c = datos.get("Contactados", pd.DataFrame())
 
             if not df_g.empty and not df_c.empty:
+                # --- Filtros del Funnel ---
+                st.subheader("Filtros del Embudo")
+                col_f1, col_f2, col_f3 = st.columns(3)
+                
+                with col_f1:
+                    enc_list = ["Todos"] + sorted(df_g["Nombre del o de la encuestadora"].dropna().unique().tolist())
+                    sel_enc = st.selectbox("Encuestador", enc_list)
+                with col_f2:
+                    con_list = ["Todas"] + sorted(df_g["Constructora"].dropna().unique().tolist())
+                    sel_con = st.selectbox("Constructora", con_list)
+                with col_f3:
+                    fran_list = ["Todas"] + ["00:00 a 03:00", "03:00 a 06:00", "06:00 a 09:00", "09:00 a 12:00", "12:00 a 15:00", "15:00 a 18:00", "18:00 a 21:00", "21:00 a 00:00"]
+                    sel_fran = st.selectbox("Franja Horaria", fran_list)
+
+                # Aplicar filtros a ambas dataframes
+                df_g_f = df_g.copy()
+                df_c_f = df_c.copy()
+
+                if sel_enc != "Todos":
+                    df_g_f = df_g_f[df_g_f["Nombre del o de la encuestadora"] == sel_enc]
+                    df_c_f = df_c_f[df_c_f["Nombre del o de la encuestadora"] == sel_enc]
+                if sel_con != "Todas":
+                    df_g_f = df_g_f[df_g_f["Constructora"] == sel_con]
+                    df_c_f = df_c_f[df_c_f["Constructora"] == sel_con]
+                if sel_fran != "Todas":
+                    df_g_f = df_g_f[df_g_f["Franja Horaria"] == sel_fran]
+                    df_c_f = df_c_f[df_c_f["Franja Horaria"] == sel_fran]
+
                 # Calcular Encuestas Exitosas desde df_g
-                exitos_g = len(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
+                exitos_g = len(df_g_f[df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
 
                 # Preparar datos para el Funnel
                 etapas = ["Total Gestiones", "Contactos Efectivos", "Encuestas Exitosas"]
-                valores = [len(df_g), len(df_c), exitos_g]
+                valores = [len(df_g_f), len(df_c_f), exitos_g]
                 
                 fig_funnel = px.funnel(
                     data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": valores}),
@@ -233,22 +266,22 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # Métricas de tasa de caída
                 c1, c2 = st.columns(2)
                 with c1:
-                    tasa_contacto = (len(df_c) / len(df_g)) * 100
+                    tasa_contacto = (len(df_c_f) / len(df_g_f)) * 100 if len(df_g_f) > 0 else 0
                     st.metric("Tasa de Contactabilidad (Base -> Contactos)", f"{tasa_contacto:.1f}%")
                 with c2:
-                    tasa_conversion = (exitos_g / len(df_c)) * 100 if len(df_c) > 0 else 0
+                    tasa_conversion = (exitos_g / len(df_c_f)) * 100 if len(df_c_f) > 0 else 0
                     st.metric("Tasa de Efectividad (Contactos -> Éxito)", f"{tasa_conversion:.1f}%")
                 
                 st.divider()
                 st.subheader("Análisis por Segmento")
                 # Podemos ver el funnel por Ciudad si existe en todas las hojas
-                if "Ciudad" in df_g.columns and "Ciudad" in df_c.columns: # Asegurar que Ciudad esté en ambas para filtrar
-                    ciudad_sel = st.selectbox("Ver Funnel por Ciudad", ["Todas"] + sorted(df_g["Ciudad"].dropna().unique().tolist()))
+                if "Ciudad" in df_g_f.columns and "Ciudad" in df_c_f.columns: # Asegurar que Ciudad esté en ambas para filtrar
+                    ciudad_sel = st.selectbox("Ver Funnel por Ciudad", ["Todas"] + sorted(df_g_f["Ciudad"].dropna().unique().tolist()))
                     if ciudad_sel != "Todas":
-                        v_g = len(df_g[df_g["Ciudad"] == ciudad_sel])
-                        v_c = len(df_c[df_c["Ciudad"] == ciudad_sel])
+                        v_g = len(df_g_f[df_g_f["Ciudad"] == ciudad_sel])
+                        v_c = len(df_c_f[df_c_f["Ciudad"] == ciudad_sel])
                         # Recalcular exitos para el segmento
-                        v_e_segment = len(df_g[(df_g["Ciudad"] == ciudad_sel) & (df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"]))])
+                        v_e_segment = len(df_g_f[(df_g_f["Ciudad"] == ciudad_sel) & (df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"]))])
                         
                         fig_funnel_sub = px.funnel( # Usar v_e_segment
                             data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": [v_g, v_c, v_e_segment]}),
@@ -260,7 +293,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 
                 with st.expander("Verificación Técnica de Categorías"):
                     st.write("Valores detectados en 'Resultado de la gestión (Agrupado)':")
-                    st.write(df_g["Resultado de la gestión (Agrupado)"].value_counts())
+                    st.write(df_g_f["Resultado de la gestión (Agrupado)"].value_counts())
             else:
                 st.warning("Se requieren datos en las hojas 'Base_gestiones realizadas' y 'Contactados' para generar el funnel.")
             
