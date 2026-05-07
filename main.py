@@ -22,8 +22,10 @@ def limpiar_telefono(tel):
 
 def agrupar_resultado_gestion(valor):
     valor = str(valor).lower()
-    if "responde la encuesta" in valor or "encuesta incompleta" in valor:
-        return "Éxito / Parcial"
+    if "responde la encuesta" in valor:
+        return "Éxito Total"
+    elif "encuesta incompleta" in valor:
+        return "Parcial / Incompleta"
     elif "no contesta" in valor or "sin respuesta" in valor or "no entra" in valor or "invalido" in valor:
         return "No Contactado"
     elif "rechaza" in valor or "rechazo" in valor:
@@ -202,7 +204,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 kpi1.metric("Contactabilidad", f"{contactabilidad:.1f}%", help="Porcentaje de gestiones que resultaron en un contacto real")
 
                 # 2. Tasa de Conversión
-                exitos = len(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito / Parcial"])
+                exitos = len(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
                 conversion = (exitos / (total - no_contactados)) * 100 if (total - no_contactados) > 0 else 0
                 kpi2.metric("Conversión", f"{conversion:.1f}%", help="Encuestas exitosas sobre el total de personas contactadas")
 
