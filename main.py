@@ -52,9 +52,14 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if col_nombre in df.columns:
                     df[col_nombre] = df[col_nombre].apply(limpiar_texto)
                 
-                # Estandarizar fecha y teléfono
+                # Estandarizar fecha, día y teléfono
                 if "Marca temporal" in df.columns:
                     df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce')
+                    df["Dia_Semana"] = df["Marca temporal"].dt.day_name().map({
+                        'Monday': '1. Lunes', 'Tuesday': '2. Martes', 'Wednesday': '3. Miércoles',
+                        'Thursday': '4. Jueves', 'Friday': '5. Viernes', 'Saturday': '6. Sábado', 'Sunday': '7. Domingo'
+                    })
+                    df["Hora"] = df["Marca temporal"].dt.hour
                 
                 col_tel = "Número de teléfono sobre el que se realizó la gestión"
                 if col_tel in df.columns:
@@ -177,7 +182,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
     if datos:
         st.sidebar.header("Filtros Globales")
-        vistas = ["Resumen de KPIs Críticos", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         hoja_seleccionada = st.sidebar.selectbox("Seleccione la fuente de datos:", vistas)
 
         if hoja_seleccionada == "Resumen de KPIs Críticos":
@@ -185,6 +190,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
             
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
             df_t = datos.get("Twilio", pd.DataFrame())
+            df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
             
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
             
@@ -200,12 +206,21 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 conversion = (exitos / (total - no_contactados)) * 100 if (total - no_contactados) > 0 else 0
                 kpi2.metric("Conversión", f"{conversion:.1f}%", help="Encuestas exitosas sobre el total de personas contactadas")
 
-            if not df_t.empty:
-                # 3. AHT (Tiempo Promedio)
-                if "Duration" in df_t.columns:
-                    aht = df_t[df_t["Duration"] > 0]["Duration"].mean()
-                    kpi3.metric("AHT (Segundos)", f"{aht:.1f}s", help="Tiempo promedio de conversación")
+            # 3. AHT (Tiempo Promedio Consolidado de Twilio y Cámara)
+            list_dur_kpi = []
+            if not df_t.empty and "Duration" in df_t.columns:
+                list_dur_kpi.append(df_t[df_t["Duration"] > 0]["Duration"])
+            if not df_c.empty and "segundos" in df_c.columns:
+                list_dur_kpi.append(df_c[df_c["segundos"] > 0]["segundos"])
+            
+            if list_dur_kpi:
+                all_durations = pd.concat(list_dur_kpi)
+                aht = all_durations.mean()
+                kpi3.metric("AHT Consolidado", f"{aht:.1f}s", help="Promedio de duración de llamadas (Manuales + Twilio)")
+            else:
+                kpi3.metric("AHT Consolidado", "N/A")
 
+            if not df_t.empty:
                 # 4. Eficiencia de Costos
                 if "Price" in df_t.columns and not df_g.empty and exitos > 0:
                     costo_total = df_t["Price"].abs().sum()
@@ -237,6 +252,97 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.write(f"Nivel de molestia promedio: **{avg_molestia:.2f} / 7**")
 
             st.stop() # Finaliza la vista de KPIs para no mostrar el resto
+
+        elif hoja_seleccionada == "Análisis de Persistencia y Éxito":
+            st.header("🎯 Análisis de Persistencia y Factores de Éxito")
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            df_e = datos.get("Entregados", pd.DataFrame())
+            df_t = datos.get("Twilio", pd.DataFrame())
+            df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
+
+            if not df_g.empty:
+                # 1. Análisis de Intentos
+                intentos_por_tel = df_g.groupby('tel_link').size().reset_index(name='Intentos')
+                
+                # Identificar si el número terminó en entrega (éxito)
+                if not df_e.empty:
+                    tels_exito = set(df_e['tel_link'].dropna().unique())
+                    intentos_por_tel['Resultado Final'] = intentos_por_tel['tel_link'].apply(
+                        lambda x: 'Exitoso (Entrega)' if x in tels_exito else 'No Efectivo'
+                    )
+                    
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.subheader("¿Cuántos intentos toma tener éxito?")
+                        avg_intentos = intentos_por_tel.groupby('Resultado Final')['Intentos'].mean().reset_index()
+                        fig_int = px.bar(avg_intentos, x='Resultado Final', y='Intentos', 
+                                         color='Resultado Final', text_auto='.1f',
+                                         title="Promedio de Intentos Realizados")
+                        st.plotly_chart(fig_int, use_container_width=True)
+                    
+                    with col_b:
+                        st.subheader("Distribución de Intentos")
+                        fig_dist = px.histogram(intentos_por_tel, x='Intentos', color='Resultado Final',
+                                                marginal="box", barmode="overlay",
+                                                title="Frecuencia de intentos por contacto")
+                        st.plotly_chart(fig_dist, use_container_width=True)
+
+                # 2. Análisis de Duración (Cruce Consolidado Twilio + Cámara)
+                st.divider()
+                st.subheader("⏱️ Duración de Llamadas (Técnico) vs. Resultado de Gestión")
+                
+                # Consolidar registros de duración de ambas fuentes
+                list_tech_logs = []
+                if not df_t.empty:
+                    list_tech_logs.append(df_t[['tel_link', 'Duration']])
+                if not df_c.empty:
+                    list_tech_logs.append(df_c[['tel_link', 'segundos']].rename(columns={'segundos': 'Duration'}))
+                
+                if list_tech_logs:
+                    df_all_tech = pd.concat(list_tech_logs)
+                    # Agrupamos por teléfono para obtener duración promedio técnica por contacto
+                    tech_dur_mean = df_all_tech.groupby('tel_link')['Duration'].mean().reset_index()
+                    
+                    df_dur = pd.merge(df_g, tech_dur_mean, on='tel_link', how='inner')
+                    
+                    # Filtrar duraciones > 0 para evitar ruido
+                    df_dur = df_dur[df_dur['Duration'] > 0]
+                    
+                    res_dur = df_dur.groupby('Resultado de la gestión (Agrupado)')['Duration'].mean().reset_index()
+                    fig_res_dur = px.bar(res_dur, x='Resultado de la gestión (Agrupado)', y='Duration',
+                                         text_auto='.1s', color='Resultado de la gestión (Agrupado)',
+                                         title="Duración Promedio Real (Segundos) por Categoría de Gestión",
+                                         labels={'Duration': 'Segundos (Promedio)'})
+                    st.plotly_chart(fig_res_dur, use_container_width=True)
+                    st.info("Nota: Este gráfico cruza el 'Resultado de la gestión' manual con la duración técnica consolidada de Twilio y Cámara.")
+
+                # 3. Efectividad por Día y Hora
+                st.divider()
+                st.subheader("📅 ¿Cuándo es mejor llamar?")
+                if 'Dia_Semana' in df_g.columns and 'Hora' in df_g.columns:
+                    # Marcamos cuales fueron exitosas
+                    tels_exito = set(df_e['tel_link'].dropna().unique()) if not df_e.empty else set()
+                    df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
+                    
+                    # Pivot table para Heatmap
+                    heatmap_data = df_g.groupby(['Dia_Semana', 'Hora'])['Es_Exito'].mean().reset_index()
+                    heatmap_data['Es_Exito'] *= 100 # Convertir a porcentaje
+                    
+                    # Ordenar días correctamente
+                    fig_heat = px.density_heatmap(heatmap_data, x='Hora', y='Dia_Semana', z='Es_Exito',
+                                                  color_continuous_scale='Viridis',
+                                                  title="Mapa de Calor: % de Efectividad (Conversión a Entrega)",
+                                                  labels={'Es_Exito': '% Efectividad', 'Hora': 'Hora del Día', 'Dia_Semana': 'Día'},
+                                                  category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"]})
+                    st.plotly_chart(fig_heat, use_container_width=True)
+                    st.caption("Los colores más claros (amarillo) indican horas y días con mayor probabilidad de que la gestión termine en una Entrega.")
+                
+                # 4. Análisis específico de "Llamar después" (Seguimiento)
+                st.subheader("🔄 Evolución de los casos 'Llamar Después'")
+                casos_seguimiento = df_g[df_g['Resultado de la gestión (Agrupado)'] == 'Seguimiento']['tel_link'].nunique()
+                st.write(f"Número de contactos únicos que pidieron ser llamados después: **{casos_seguimiento}**")
+            
+            st.stop()
 
         elif hoja_seleccionada == "Comportamiento 24h y Efectividad":
             st.header("🕒 Comportamiento Temporal y Efectividad")
