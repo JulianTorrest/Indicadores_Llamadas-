@@ -22,26 +22,28 @@ def limpiar_telefono(tel):
 
 def agrupar_resultado_gestion(valor):
     if pd.isna(valor): return "Otros"
-    # Normalizar para comparación (minúsculas y sin tildes)
-    valor_norm = str(valor).lower()
-    valor_norm = "".join(c for c in unicodedata.normalize('NFD', valor_norm) if unicodedata.category(c) != 'Mn')
+    # Normalizar: minúsculas, sin espacios extra y sin tildes
+    v = "".join(c for c in unicodedata.normalize('NFD', str(valor).lower().strip()) if unicodedata.category(c) != 'Mn')
 
-    if "respond" in valor_norm and "encuesta" in valor_norm and "incompleta" not in valor_norm: # Éxito total
-        return "Éxito Total"
-    elif "forms" in valor_norm and "encuesta" in valor_norm: # También es éxito total
-        return "Éxito Total"
-    elif "incompleta" in valor_norm:
-        return "Parcial / Incompleta"
-    elif "no contesta" in valor_norm or "sin respuesta" in valor_norm or "no entra" in valor_norm or "invalido" in valor_norm:
+    # Lógica de éxito basada en palabras clave (más flexible)
+    if "encuesta" in v:
+        if "incompleta" in v:
+            return "Parcial / Incompleta"
+        if any(x in v for x in ["respond", "complet", "forms", "exito"]):
+            return "Éxito Total"
+    
+    # Resto de categorías
+    if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido"]):
         return "No Contactado"
-    elif "rechaza" in valor_norm or "rechazo" in valor_norm:
+    if "rechaza" in v or "rechazo" in v:
         return "Rechazo"
-    elif "pide que" in valor_norm or "llamen despues" in valor_norm or "formulario online" in valor_norm:
+    if any(x in v for x in ["pide que", "llamen despues", "online"]):
         return "Seguimiento"
-    elif "no hace parte de universo" in valor_norm:
+    if "universo" in v:
         return "Fuera de Perfil"
-    elif "no aplica" in valor_norm:
+    if "no aplica" in v:
         return "No Aplica"
+    
     return "Otros"
 
 @st.cache_data(show_spinner="Cargando y limpiando datos...")
