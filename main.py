@@ -206,9 +206,13 @@ if os.path.exists(NOMBRE_ARCHIVO):
     estructura = analizar_estructura_completa(NOMBRE_ARCHIVO)
 
     if datos:
-        st.sidebar.header("Filtros Globales")
         vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
-        hoja_seleccionada = st.sidebar.selectbox("Seleccione la fuente de datos:", vistas)
+        
+        # Navegación Centralizada (Centro de la página)
+        col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+        with col_nav2:
+            hoja_seleccionada = st.selectbox("🎯 Navegación Principal - Seleccione la vista o fuente de datos:", vistas)
+        st.divider()
 
         if hoja_seleccionada == "Funnel de Conversión":
             st.header("🏆 Embudo de Conversión de la Campaña")
