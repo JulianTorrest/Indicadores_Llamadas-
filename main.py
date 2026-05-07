@@ -202,7 +202,7 @@ def analizar_estructura_completa(ruta_archivo):
 
 st.set_page_config(page_title="Dashboard de Campañas y Entregas", layout="wide")
 
-st.title("📊 Dashboard de Campañas y Entregas")
+st.title("Dashboard de Campañas y Entregas")
 st.info("Analizando datos directamente desde el repositorio de GitHub.")
 
 NOMBRE_ARCHIVO = "Seguimiento encuestas consolidado.xlsx"
@@ -218,11 +218,11 @@ if os.path.exists(NOMBRE_ARCHIVO):
         # Navegación Centralizada (Centro de la página)
         col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
         with col_nav2:
-            hoja_seleccionada = st.selectbox("🎯 Navegación Principal - Seleccione la vista o fuente de datos:", vistas)
+            hoja_seleccionada = st.selectbox("Navegación Principal - Seleccione la vista o fuente de datos:", vistas)
         st.divider()
 
         if hoja_seleccionada == "Funnel de Conversión":
-            st.header("🏆 Embudo de Conversión de la Campaña")
+            st.header("Embudo de Conversión de la Campaña")
             st.write("Representación del ciclo de vida: desde el intento inicial hasta la entrega efectiva.")
 
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
@@ -311,7 +311,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
             st.stop()
 
         elif hoja_seleccionada == "Resumen de KPIs Críticos":
-            st.header("🚀 Indicadores Críticos de Campaña")
+            st.header("Indicadores Críticos de Campaña")
             
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
             df_t = datos.get("Twilio", pd.DataFrame())
@@ -379,7 +379,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
             st.stop() # Finaliza la vista de KPIs para no mostrar el resto
 
         elif hoja_seleccionada == "Análisis de Persistencia y Éxito":
-            st.header("🎯 Análisis de Persistencia y Factores de Éxito")
+            st.header("Análisis de Persistencia y Factores de Éxito")
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
             df_t = datos.get("Twilio", pd.DataFrame())
             df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
@@ -413,7 +413,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
                 # 2. Análisis de Duración (Cruce Consolidado Twilio + Cámara)
                 st.divider()
-                st.subheader("⏱️ Duración de Llamadas (Técnico) vs. Resultado de Gestión")
+                st.subheader("Duración de Llamadas (Técnico) vs. Resultado de Gestión")
                 
                 # Consolidar registros de duración de ambas fuentes
                 list_tech_logs = []
@@ -442,7 +442,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
                 # 3. Efectividad por Día y Hora
                 st.divider()
-                st.subheader("📅 ¿Cuándo es mejor llamar?")
+                st.subheader("¿Cuándo es mejor llamar?")
                 if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns:
                     # Marcamos cuales fueron exitosas (basado en df_g)
                     if "Resultado de la gestión (Agrupado)" in df_g.columns:
@@ -475,7 +475,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
                 
                 # 4. Análisis específico de "Llamar después" (Seguimiento)
-                st.subheader("🔄 Evolución de los casos 'Llamar Después'")
+                st.subheader("Evolución de los casos 'Llamar Después'")
                 
                 # Identificar el primer 'Seguimiento' por teléfono
                 df_seg = df_g[df_g['Resultado de la gestión (Agrupado)'] == 'Seguimiento'].sort_values('Marca temporal')
@@ -511,7 +511,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         st.plotly_chart(fig_post, use_container_width=True)
 
                     # Nuevo gráfico: ¿En qué intento se logra el éxito?
-                    st.write("### 📈 Esfuerzo de Conversión Post-Seguimiento")
+                    st.write("### Esfuerzo de Conversión Post-Seguimiento")
                     
                     # --- CAMBIO CRÍTICO AQUÍ ---
                     # 1. Identificar los tel_link que realmente terminaron en éxito (según la métrica de arriba)
@@ -546,7 +546,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
             st.stop()
 
         elif hoja_seleccionada == "Comportamiento 24h y Efectividad":
-            st.header("🕒 Comportamiento Temporal y Efectividad")
+            st.header("Comportamiento Temporal y Efectividad")
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
 
             if not df_g.empty and "Marca temporal" in df_g.columns:
@@ -597,13 +597,13 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     fig_24h.update_traces(textposition="top center")
                     st.plotly_chart(fig_24h, use_container_width=True)
                     
-                    st.info("💡 Consejo: Las líneas muestran la actividad de 0 a 23h. Si una línea está en 0, significa que no hubo actividad en esa franja para los filtros seleccionados.")
+                    st.info("Consejo: Las líneas muestran la actividad de 0 a 23h. Si una línea está en 0, significa que no hubo actividad en esa franja para los filtros seleccionados.")
                 else:
                     st.warning("Se requieren datos de 'Entregados' para medir efectividad.")
             st.stop()
 
         elif hoja_seleccionada == "Análisis Cruzado (Auditoría)":
-            st.header("🔍 Auditoría: Gestión vs Telefonía")
+            st.header("Auditoría: Gestión vs Telefonía")
             df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
             df_t = datos.get("Twilio", pd.DataFrame())
             df_c = datos.get("Camara_llamadas_salientes", pd.DataFrame())
@@ -632,7 +632,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
         df_base = datos[hoja_seleccionada]
 
-        st.header(f"📈 Dashboard: {hoja_seleccionada}")
+        st.header(f"Dashboard: {hoja_seleccionada}")
         
         # Metricas Principales
         col1, col2, col3 = st.columns(3)
@@ -812,7 +812,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.info("Faltan columnas de encuestador o minutos para este análisis.")
 
         elif hoja_seleccionada == "Twilio":
-            tab1, tab2, tab3 = st.tabs(["Estado y Calidad", "Análisis de Costos", "Distribución Horaria"])
+            tab1, tab2 = st.tabs(["Estado y Calidad", "Distribución Horaria"])
             
             with tab1:
                 st.subheader("Estado Técnico de Llamadas")
@@ -827,14 +827,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.plotly_chart(fig_dir, use_container_width=True)
 
             with tab2:
-                st.subheader("Análisis de Inversión")
-                if "Price" in df_base.columns and "Type" in df_base.columns:
-                    df_cost = df_base.copy()
-                    df_cost["Costo Absoluto"] = df_cost["Price"].abs()
-                    fig_cost = px.box(df_cost, x="Type", y="Costo Absoluto", color="Type", title="Distribución de Costos por Tipo")
-                    st.plotly_chart(fig_cost, use_container_width=True)
-
-            with tab3:
                 st.subheader("Actividad por Hora (Picos de Llamadas)")
                 if "Start Time" in df_base.columns:
                     # Filtramos filas sin fecha válida para evitar que el gráfico salga vacío
