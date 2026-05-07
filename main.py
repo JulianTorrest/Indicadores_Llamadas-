@@ -213,7 +213,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
     estructura = analizar_estructura_completa(NOMBRE_ARCHIVO)
 
     if datos:
-        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Visión Estratégica (Optimización)", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         
         # Navegación Centralizada (Centro de la página)
         col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
@@ -377,6 +377,63 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.write(f"Nivel de molestia promedio: **{avg_molestia:.2f} / 7**")
 
             st.stop() # Finaliza la vista de KPIs para no mostrar el resto
+
+        elif hoja_seleccionada == "Visión Estratégica (Optimización)":
+            st.header("Visión Estratégica: Optimización de Recursos")
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            
+            if not df_g.empty:
+                tab_strat1, tab_strat2 = st.tabs(["Saturación de Leads (Burnout)", "Cuadrante de Eficiencia de Agentes"])
+                
+                with tab_strat1:
+                    st.subheader("Análisis de Saturación de Contactos")
+                    st.write("Identifica números con alta cantidad de intentos sin éxito para evitar el desgaste de la base.")
+                    
+                    intentos = df_g.groupby('tel_link').size().reset_index(name='Num_Intentos')
+                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].unique())
+                    intentos['Estado'] = intentos['tel_link'].apply(lambda x: 'Exitoso' if x in tels_exito else 'Pendiente/Fallido')
+                    
+                    saturados = intentos[(intentos['Estado'] == 'Pendiente/Fallido') & (intentos['Num_Intentos'] > 5)]
+                    
+                    col_s1, col_s2 = st.columns(2)
+                    col_s1.metric("Leads Saturados (>5 intentos)", len(saturados))
+                    col_s2.metric("% de la Base en Saturación", f"{(len(saturados)/len(intentos)*100):.1f}%" if len(intentos)>0 else "0%")
+                    
+                    fig_sat = px.histogram(intentos[intentos['Estado'] == 'Pendiente/Fallido'], x='Num_Intentos', 
+                                           title="Distribución de Intentos en Leads No Exitosos",
+                                           labels={'Num_Intentos': 'Número de Intentos'}, text_auto=True)
+                    st.plotly_chart(fig_sat, use_container_width=True)
+                    
+                with tab_strat2:
+                    st.subheader("Cuadrante de Desempeño de Encuestadores")
+                    st.write("Relación entre el volumen de trabajo y la efectividad real.")
+                    
+                    col_agent = "Nombre del o de la encuestadora"
+                    if col_agent in df_g.columns:
+                        agentes = df_g.groupby(col_agent).agg(
+                            Total_Gestiones=('tel_link', 'count'),
+                            Exitos=('Resultado de la gestión (Agrupado)', lambda x: x.isin(["Éxito Total", "Parcial / Incompleta"]).sum())
+                        ).reset_index()
+                        agentes['Tasa_Conversion'] = (agentes['Exitos'] / agentes['Total_Gestiones']) * 100
+                        
+                        fig_quad = px.scatter(agentes, x='Total_Gestiones', y='Tasa_Conversion', 
+                                              text=col_agent, size='Exitos', color='Tasa_Conversion',
+                                              title="Efectividad vs Volumen por Encuestador",
+                                              labels={'Total_Gestiones': 'Volumen de Gestiones', 'Tasa_Conversion': '% Conversión (Éxito)'},
+                                              color_continuous_scale='RdYlGn')
+                        
+                        # Añadir líneas de promedio
+                        fig_quad.add_hline(y=agentes['Tasa_Conversion'].mean(), line_dash="dash", annotation_text="Media Eficiencia")
+                        fig_quad.add_vline(x=agentes['Total_Gestiones'].mean(), line_dash="dash", annotation_text="Media Volumen")
+                        
+                        st.plotly_chart(fig_quad, use_container_width=True)
+                        st.info("- **Superior Derecha:** Alto volumen y alta eficiencia (Top Performers).\n"
+                                "- **Superior Izquierda:** Bajo volumen pero alta eficiencia (Calidad sobre cantidad).\n"
+                                "- **Inferior Derecha:** Alto volumen pero baja eficiencia (Revisar discurso).\n"
+                                "- **Inferior Izquierda:** Bajo volumen y baja eficiencia.")
+            else:
+                st.warning("No hay datos suficientes para el análisis estratégico.")
+            st.stop()
 
         elif hoja_seleccionada == "Análisis de Persistencia y Éxito":
             st.header("Análisis de Persistencia y Factores de Éxito")
