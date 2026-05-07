@@ -702,15 +702,15 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
             col_agrupado = "Resultado de la gestión (Agrupado)"
             if col_agrupado in df_base.columns:
-                exito_parcial_count = (df_base[col_agrupado] == "Éxito / Parcial").sum()
+                exito_count = df_base[col_agrupado].isin(["Éxito Total", "Parcial / Incompleta"]).sum()
                 total_registros = len(df_base)
                 if total_registros > 0:
-                    porcentaje_exito = (exito_parcial_count / total_registros) * 100
-                    col3.metric("Éxito / Parcial", f"{porcentaje_exito:.1f}%")
+                    porcentaje_exito = (exito_count / total_registros) * 100
+                    col3.metric("Tasa de Éxito", f"{porcentaje_exito:.1f}%")
                 else:
-                    col3.metric("Éxito / Parcial", "0.0%")
+                    col3.metric("Tasa de Éxito", "0.0%")
             else:
-                col3.metric("Éxito / Parcial", "N/A")
+                col3.metric("Tasa de Éxito", "N/A")
 
         elif hoja_seleccionada in ["Entregados", "Correo Masivo"]:
             col_encuestador_name = "Encuestador"
