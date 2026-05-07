@@ -491,7 +491,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     
                     # --- CAMBIO CRÍTICO AQUÍ ---
                     # 1. Identificar los tel_link que realmente terminaron en éxito (según la métrica de arriba)
-                    successful_tel_links_from_metric = ultimo_estado[ultimo_estado['Resultado Posterior'].isin(["Éxito Total", "Parcial / Incompleta"])]['tel_link']
+                    successful_tel_links_from_metric = ultimo_estado[ultimo_estado['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]['tel_link']
                     
                     # 2. Filtrar df_post para incluir solo las actividades de ESTOS contactos exitosos
                     df_post_successful_only = df_post[df_post['tel_link'].isin(successful_tel_links_from_metric)]
