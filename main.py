@@ -75,11 +75,3 @@ if os.path.exists(NOMBRE_ARCHIVO):
         st.json(estructura)
 else:
     st.error(f"No se encontró el archivo '{NOMBRE_ARCHIVO}' en el repositorio.")
-
-        st.subheader("Desglose por Hoja")
-        for hoja, columnas in campos_hojas.items():
-            with st.expander(f"Hoja: {hoja}"):
-                st.write(f"**Total de campos:** {len(columnas)}")
-                st.write(columnas)
-else:
-    st.error(f"No se encontró el archivo '{NOMBRE_ARCHIVO}' en el repositorio.")
