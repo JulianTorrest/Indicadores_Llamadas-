@@ -38,7 +38,7 @@ def agrupar_resultado_gestion(valor):
 
     # 3. No Contactado
     if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest", "no contactado"]):
-        return "No contestaron"
+        return "No Contestaron"
 
     # 4. Rechazo
     if "rechaza" in v or "rechazo" in v:
@@ -322,7 +322,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
             if not df_g.empty:
                 # 1. Tasa de Contactabilidad
                 total = len(df_g)
-                no_contactados = len(df_g[df_g["Resultado de la gestión (Agrupado)"] == "No contestaron"])
+                no_contactados = len(df_g[df_g["Resultado de la gestión (Agrupado)"] == "No Contestaron"])
                 contactabilidad = ((total - no_contactados) / total) * 100 if total > 0 else 0
                 kpi1.metric("Contactabilidad", f"{contactabilidad:.1f}%", help="Porcentaje de gestiones que resultaron en un contacto real")
 
