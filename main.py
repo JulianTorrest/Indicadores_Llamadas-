@@ -841,12 +841,33 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_hora = df_base.dropna(subset=["Start Time"]).copy()
                     if not df_hora.empty:
                         df_hora["Hora"] = df_hora["Start Time"].dt.hour
-                        hourly_calls = df_hora.groupby("Hora").size().reset_index(name="Cantidad")
-                        hourly_calls = hourly_calls.sort_values("Hora")
                         
-                        fig_hour = px.line(hourly_calls, x="Hora", y="Cantidad", 
-                                         title="Volumen de Llamadas por Hora del Día", 
-                                         markers=True, text="Cantidad")
+                        # Identificar llamadas exitosas cruzando con Base de Gestiones
+                        df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                        tels_exito = set()
+                        if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
+                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
+                        
+                        df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
+                        
+                        hourly_stats = df_hora.groupby("Hora").agg(
+                            Total_Llamadas=("Hora", "count"),
+                            Llamadas_Exitosas=("Es_Exito", "sum")
+                        ).reset_index()
+                        
+                        # Asegurar que las 24 horas estén presentes para que las líneas sean continuas
+                        horas_full = pd.DataFrame({'Hora': range(24)})
+                        hourly_calls = pd.merge(horas_full, hourly_stats, on='Hora', how='left').fillna(0)
+                        hourly_calls = hourly_calls.sort_values("Hora")
+
+                        # Transformar a formato largo para mostrar etiquetas en ambas líneas
+                        hourly_calls = hourly_calls.melt(id_vars='Hora', var_name='Métrica', value_name='Cantidad')
+                        
+                        fig_hour = px.line(hourly_calls, x="Hora", y="Cantidad", color="Métrica",
+                                         title="Volumen de Llamadas vs Éxitos por Hora del Día (Twilio)", 
+                                         markers=True, text="Cantidad",
+                                         color_discrete_map={'Total_Llamadas': '#1f77b4', 'Llamadas_Exitosas': '#ff7f0e'})
+                        
                         fig_hour.update_traces(textposition="top center")
                         st.plotly_chart(fig_hour, use_container_width=True)
                     else:
