@@ -432,7 +432,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # 3. Efectividad por Día y Hora
                 st.divider()
                 st.subheader("📅 ¿Cuándo es mejor llamar?")
-                if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns
+                if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns:
                     # Marcamos cuales fueron exitosas (basado en df_g)
                     if "Resultado de la gestión (Agrupado)" in df_g.columns:
                         df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
@@ -454,6 +454,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                                                   title="Mapa de Calor: % de Efectividad (Conversión a Encuesta Exitosa)",
                                                   labels={'Es_Exito': '% Efectividad', 'Franja Horaria': 'Franja Horaria del Día', 'Dia_Semana': 'Día'},
                                                   category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"],
+                                                                   "Franja Horaria": franja_horaria_order})
 
                     st.plotly_chart(fig_heat, use_container_width=True)
                     st.caption("Los colores más claros (amarillo) indican franjas horarias y días con mayor probabilidad de que la gestión termine en una Encuesta Exitosa. La efectividad se calcula como el promedio de éxitos (0% a 100%).")
