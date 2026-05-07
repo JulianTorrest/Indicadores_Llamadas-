@@ -21,22 +21,26 @@ def limpiar_telefono(tel):
     return s
 
 def agrupar_resultado_gestion(valor):
-    valor = str(valor).lower()
-    if "responde la encuesta" in valor and "incompleta" not in valor: # Éxito total
+    if pd.isna(valor): return "Otros"
+    # Normalizar para comparación (minúsculas y sin tildes)
+    valor_norm = str(valor).lower()
+    valor_norm = "".join(c for c in unicodedata.normalize('NFD', valor_norm) if unicodedata.category(c) != 'Mn')
+
+    if "respond" in valor_norm and "encuesta" in valor_norm and "incompleta" not in valor_norm: # Éxito total
         return "Éxito Total"
-    elif "responde la encuesta por forms" in valor: # También es éxito total
+    elif "forms" in valor_norm and "encuesta" in valor_norm: # También es éxito total
         return "Éxito Total"
-    elif "encuesta incompleta" in valor:
+    elif "incompleta" in valor_norm:
         return "Parcial / Incompleta"
-    elif "no contesta" in valor or "sin respuesta" in valor or "no entra" in valor or "invalido" in valor:
+    elif "no contesta" in valor_norm or "sin respuesta" in valor_norm or "no entra" in valor_norm or "invalido" in valor_norm:
         return "No Contactado"
-    elif "rechaza" in valor or "rechazo" in valor:
+    elif "rechaza" in valor_norm or "rechazo" in valor_norm:
         return "Rechazo"
-    elif "pide que" in valor or "llamen despues" in valor or "formulario online" in valor:
+    elif "pide que" in valor_norm or "llamen despues" in valor_norm or "formulario online" in valor_norm:
         return "Seguimiento"
-    elif "no hace parte de universo" in valor:
+    elif "no hace parte de universo" in valor_norm:
         return "Fuera de Perfil"
-    elif "no aplica" in valor: # Para manejar posibles N/A o vacíos en la agrupación
+    elif "no aplica" in valor_norm:
         return "No Aplica"
     return "Otros"
 
@@ -435,7 +439,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_g_f['Efectivo'] = df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])
                     
                     # Agrupar por hora
-                    hourly_stats = df_merge.groupby('Hora').agg(
+                    hourly_stats = df_g_f.groupby('Hora').agg(
                         Gestiones=('Marca temporal', 'count'),
                         Entregas=('Efectivo', 'sum')
                     ).reset_index()
