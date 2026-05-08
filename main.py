@@ -25,16 +25,12 @@ def agrupar_resultado_gestion(valor):
     # Normalizar: minúsculas, sin espacios laterales y sin tildes
     v = "".join(c for c in unicodedata.normalize('NFD', str(valor).lower().strip()) if unicodedata.category(c) != 'Mn')
 
-    # 1. Coincidencias Exactas (Basado en el requerimiento del usuario)
+    # 1. Éxito (Basado en el nuevo requerimiento: solo contesta y responde)
     if v in ["contesta y responde la encuesta", "contesta y responde la encuesta por forms"]:
         return "Éxito Total"
+    
     if "encuesta incompleta" in v:
         return "Parcial / Incompleta"
-
-    # 2. Éxito por palabras clave (Respaldo)
-    if "encuesta" in v:
-        if any(x in v for x in ["respond", "complet", "forms", "exito"]):
-            return "Éxito Total"
 
     # 3. No Contactado -> Mapeo forzado a "No Contestaron"
     if any(x in v for x in ["no contesta", "sin respuesta", "no entra", "invalido", "no contest", "no contactado", "no contestaron"]):
@@ -258,7 +254,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_c_f = df_c_f[df_c_f["Franja Horaria"] == sel_fran]
 
                 # Calcular Encuestas Exitosas desde df_g
-                exitos_g = len(df_g_f[df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
+                exitos_g = len(df_g_f[df_g_f["Resultado de la gestión (Agrupado)"] == "Éxito Total"])
 
                 # Preparar datos para el Funnel
                 etapas = ["Total Gestiones", "Contactos Efectivos", "Encuestas Exitosas"]
@@ -292,7 +288,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         v_g = len(df_g_f[df_g_f["Ciudad"] == ciudad_sel])
                         v_c = len(df_c_f[df_c_f["Ciudad"] == ciudad_sel])
                         # Recalcular exitos para el segmento
-                        v_e_segment = len(df_g_f[(df_g_f["Ciudad"] == ciudad_sel) & (df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"]))])
+                        v_e_segment = len(df_g_f[(df_g_f["Ciudad"] == ciudad_sel) & (df_g_f["Resultado de la gestión (Agrupado)"] == "Éxito Total")])
                         
                         fig_funnel_sub = px.funnel( # Usar v_e_segment
                             data_frame=pd.DataFrame({"Etapa": etapas, "Cantidad": [v_g, v_c, v_e_segment]}),
@@ -327,7 +323,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 kpi1.metric("Contactabilidad", f"{contactabilidad:.1f}%", help="Porcentaje de gestiones que resultaron en un contacto real")
 
                 # 2. Tasa de Conversión
-                exitos = len(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])])
+                exitos = len(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"])
                 conversion = (exitos / (total - no_contactados)) * 100 if (total - no_contactados) > 0 else 0
                 kpi2.metric("Conversión", f"{conversion:.1f}%", help="Encuestas exitosas sobre el total de personas contactadas")
 
@@ -390,7 +386,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.write("Identifica números con alta cantidad de intentos sin éxito para evitar el desgaste de la base.")
                     
                     intentos = df_g.groupby('tel_link').size().reset_index(name='Num_Intentos')
-                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].unique())
+                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].unique())
                     intentos['Estado'] = intentos['tel_link'].apply(lambda x: 'Exitoso' if x in tels_exito else 'Pendiente/Fallido')
                     
                     saturados = intentos[(intentos['Estado'] == 'Pendiente/Fallido') & (intentos['Num_Intentos'] > 5)]
@@ -412,7 +408,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     if col_agent in df_g.columns:
                         agentes = df_g.groupby(col_agent).agg(
                             Total_Gestiones=('tel_link', 'count'),
-                            Exitos=('Resultado de la gestión (Agrupado)', lambda x: x.isin(["Éxito Total", "Parcial / Incompleta"]).sum())
+                            Exitos=('Resultado de la gestión (Agrupado)', lambda x: (x == "Éxito Total").sum())
                         ).reset_index()
                         agentes['Tasa_Conversion'] = (agentes['Exitos'] / agentes['Total_Gestiones']) * 100
                         
@@ -447,7 +443,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 
                 # Identificar si el número terminó en éxito (basado en df_g)
                 if "Resultado de la gestión (Agrupado)" in df_g.columns:
-                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
+                    tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
                     intentos_por_tel['Resultado Final'] = intentos_por_tel['tel_link'].apply(
                         lambda x: 'Exitoso (Entrega)' if x in tels_exito else 'No Efectivo'
                     )
@@ -556,7 +552,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     with c_seg1:
                         exitos_pos = conversion_seg[conversion_seg['Resultado Posterior'].isin(["Éxito Total", "Parcial / Incompleta"])]['Cantidad'].sum()
                         tasa_recuperacion = (exitos_pos / num_contactos_seg) * 100
-                        st.metric("Tasa de Recuperación", f"{tasa_recuperacion:.1f}%", 
+                        st.metric("Tasa de Recuperación (Cualquier éxito)", f"{tasa_recuperacion:.1f}%", 
                                   help="Porcentaje de casos que pidieron 'Llamar después' y terminaron en Éxito")
                         st.write(f"De los {num_contactos_seg} casos, **{exitos_pos}** se convirtieron en éxito finalmente.")
 
@@ -572,13 +568,13 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     
                     # --- CAMBIO CRÍTICO AQUÍ ---
                     # 1. Identificar los tel_link que realmente terminaron en éxito (según la métrica de arriba)
-                    successful_tel_links_from_metric = ultimo_estado[ultimo_estado['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]['tel_link']
+                    successful_tel_links_from_metric = ultimo_estado[ultimo_estado['Resultado de la gestión (Agrupado)'] == "Éxito Total"]['tel_link']
                     
                     # 2. Filtrar df_post para incluir solo las actividades de ESTOS contactos exitosos
                     df_post_successful_only = df_post[df_post['tel_link'].isin(successful_tel_links_from_metric)]
                     
                     # 3. Filtrar las gestiones de éxito dentro de este subconjunto
-                    df_exitos_post_filtered = df_post_successful_only[df_post_successful_only['Resultado de la gestión (Agrupado)'].isin(["Éxito Total", "Parcial / Incompleta"])]
+                    df_exitos_post_filtered = df_post_successful_only[df_post_successful_only['Resultado de la gestión (Agrupado)'] == "Éxito Total"]
                     
                     if not df_exitos_post_filtered.empty:
                         # Encontrar la fecha del primer éxito post-seguimiento
@@ -632,7 +628,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # Cruzar con entregados para medir efectividad real
                 if "Resultado de la gestión (Agrupado)" in df_g_f.columns:
                     # Determinar 'Efectivo' basado en df_g_f's success criteria
-                    df_g_f['Efectivo'] = df_g_f["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])
+                    df_g_f['Efectivo'] = df_g_f["Resultado de la gestión (Agrupado)"] == "Éxito Total"
                     
                     # Agrupar por hora
                     hourly_stats = df_g_f.groupby('Hora').agg(
@@ -702,7 +698,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
             col_agrupado = "Resultado de la gestión (Agrupado)"
             if col_agrupado in df_base.columns:
-                exito_count = df_base[col_agrupado].isin(["Éxito Total", "Parcial / Incompleta"]).sum()
+                exito_count = (df_base[col_agrupado] == "Éxito Total").sum()
                 total_registros = len(df_base)
                 if total_registros > 0:
                     porcentaje_exito = (exito_count / total_registros) * 100
@@ -903,7 +899,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
                         tels_exito = set()
                         if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
-                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
+                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
                         
                         df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
                         
@@ -957,7 +953,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
                         tels_exito = set()
                         if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
-                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"].isin(["Éxito Total", "Parcial / Incompleta"])]["tel_link"].dropna().unique())
+                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
                         
                         df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
                         
