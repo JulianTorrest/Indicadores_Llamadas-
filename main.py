@@ -68,6 +68,15 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if col_nombre in df.columns:
                     df[col_nombre] = df[col_nombre].apply(limpiar_texto)
                 
+                # Estandarizar Ciudad y Constructora para cruces precisos
+                for col_to_clean in ["Ciudad", "Constructora"]:
+                    if col_to_clean in df.columns:
+                        df[col_to_clean] = df[col_to_clean].apply(limpiar_texto)
+                        if col_to_clean == "Ciudad":
+                            df[col_to_clean] = df[col_to_clean].replace({
+                                "Bogota D.C.": "Bogota", "Bogota D.C": "Bogota"
+                            })
+                
                 # Estandarizar fecha, día y teléfono
                 if "Marca temporal" in df.columns:
                     df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce', dayfirst=True)
@@ -209,7 +218,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
     estructura = analizar_estructura_completa(NOMBRE_ARCHIVO)
 
     if datos:
-        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Visión Estratégica (Optimización)", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
+        vistas = ["Funnel de Conversión", "Resumen de KPIs Críticos", "Visión Estratégica (Optimización)", "Análisis de Persistencia y Éxito", "Comportamiento 24h y Efectividad", "Análisis Cruzado (Auditoría)", "Comparativa vs. Asignación", "Base_gestiones realizadas", "Contactados", "Entregados (Base de Origen)", "Correo Masivo", "Camara_llamadas_salientes", "Twilio"]
         
         # Navegación Centralizada (Centro de la página)
         col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
@@ -678,6 +687,45 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 fig_audit.update_traces(textinfo='percent+label')
                 st.plotly_chart(fig_audit, use_container_width=True)
                 
+            st.stop()
+
+        elif hoja_seleccionada == "Comparativa vs. Asignación":
+            st.header("Análisis de Cobertura: Gestión vs. Asignación")
+            df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+            df_e = datos.get("Entregados", pd.DataFrame())
+
+            if not df_g.empty and not df_e.empty:
+                # 1. Éxitos por Constructora vs Asignación
+                st.subheader("1. Efectividad Real vs. Universo Asignado (Por Constructora)")
+                
+                exitos_const = df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"].groupby("Constructora").size().reset_index(name="Encuestas Efectivas")
+                asig_const = df_e.groupby("Constructora").size().reset_index(name="Asignación Total")
+                
+                comp_const = pd.merge(asig_const, exitos_const, on="Constructora", how="left").fillna(0)
+                comp_const_melt = comp_const.melt(id_vars="Constructora", var_name="Métrica", value_name="Cantidad")
+                
+                fig_const = px.bar(comp_const_melt, x="Constructora", y="Cantidad", color="Métrica", barmode="group",
+                                  title="Cumplimiento de Meta por Constructora",
+                                  color_discrete_map={"Asignación Total": "#CBD5E0", "Encuestas Efectivas": "#2F855A"},
+                                  text_auto=True)
+                st.plotly_chart(fig_const, use_container_width=True)
+
+                # 2. Gestiones por Región vs Asignación
+                st.subheader("2. Esfuerzo de Gestión vs. Distribución de Base (Por Ciudad)")
+                
+                gest_ciu = df_g.groupby("Ciudad").size().reset_index(name="Gestiones Realizadas (Intentos)")
+                asig_ciu = df_e.groupby("Ciudad").size().reset_index(name="Asignación Original")
+                
+                comp_ciu = pd.merge(asig_ciu, gest_ciu, on="Ciudad", how="left").fillna(0)
+                comp_ciu_melt = comp_ciu.melt(id_vars="Ciudad", var_name="Métrica", value_name="Cantidad")
+                
+                fig_ciu = px.bar(comp_ciu_melt, x="Ciudad", y="Cantidad", color="Métrica", barmode="group",
+                                title="Intensidad de Trabajo vs. Tamaño de Base por Región",
+                                color_discrete_map={"Asignación Original": "#A0AEC0", "Gestiones Realizadas (Intentos)": "#3182CE"},
+                                text_auto=True)
+                st.plotly_chart(fig_ciu, use_container_width=True)
+            else:
+                st.warning("Se requieren datos en las hojas 'Base_gestiones realizadas' y 'Entregados' para este análisis.")
             st.stop()
 
         df_base = datos[hoja_seleccionada]
