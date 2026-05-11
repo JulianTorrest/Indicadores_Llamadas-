@@ -598,6 +598,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         st.metric("Tasa de Recuperación (Cualquier éxito)", f"{tasa_recuperacion:.1f}%", 
                                   help="Porcentaje de casos que pidieron 'Llamar después' y terminaron en Éxito")
                         st.write(f"De los {num_contactos_seg} casos, **{exitos_pos}** se convirtieron en éxito finalmente.")
+                        st.caption(f"Este indicador mide la recuperación sobre todos los contactos únicos que pidieron seguimiento. Fórmula: ({exitos_pos} casos con Éxito Total o Parcial / Incompleta ÷ {num_contactos_seg} contactos que pidieron seguimiento) × 100 = {tasa_recuperacion:.1f}%.")
 
                     with c_seg2:
                         fig_post = px.pie(conversion_seg, names='Resultado Posterior', values='Cantidad',
@@ -605,6 +606,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                                           color_discrete_sequence=px.colors.qualitative.Pastel)
                         fig_post.update_traces(textinfo='percent+label')
                         st.plotly_chart(fig_post, use_container_width=True)
+                        total_post = len(ultimo_estado)
+                        st.caption(f"Este gráfico muestra la distribución del último resultado posterior solo para los contactos que pidieron seguimiento y tuvieron al menos una gestión después. Fórmula de cada porcentaje: (cantidad de contactos en cada resultado ÷ {total_post} contactos con gestión posterior) × 100.")
 
                     # Nuevo gráfico: ¿En qué intento se logra el éxito?
                     st.write("### Esfuerzo de Conversión Post-Seguimiento")
