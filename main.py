@@ -740,18 +740,24 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 if not df_c.empty and 'tel_link' in df_c.columns:
                     tels_camara = set(df_c['tel_link'].dropna().unique())
 
-                def clasificar_estrategia(tel):
-                    if tel in tels_twilio:
+                def clasificar_estrategia_declarada(medio):
+                    if medio == "Plataforma web":
                         return "Twilio"
-                    if tel in tels_camara:
-                        return "Manual / Cámara"
-                    return "No encontrado en Cámara/Twilio"
+                    if medio == "Celular/Tablet":
+                        return "Cámara"
+                    return "Sin clasificar"
 
                 df_estrategia = df_g.copy()
-                df_estrategia['Estrategia'] = df_estrategia['tel_link'].apply(clasificar_estrategia)
+                medio_col = "¿Por qué medio se realizó la llamada?"
+                df_estrategia['Estrategia'] = df_estrategia[medio_col].apply(clasificar_estrategia_declarada)
+                df_estrategia['Respaldo_Twilio'] = df_estrategia['tel_link'].isin(tels_twilio)
+                df_estrategia['Respaldo_Camara'] = df_estrategia['tel_link'].isin(tels_camara)
+                df_estrategia['Respaldo_Esperado'] = (
+                    ((df_estrategia['Estrategia'] == "Twilio") & df_estrategia['Respaldo_Twilio']) |
+                    ((df_estrategia['Estrategia'] == "Cámara") & df_estrategia['Respaldo_Camara'])
+                )
                 df_estrategia['Es_Exito'] = df_estrategia["Resultado de la gestión (Agrupado)"] == "Éxito Total"
-                df_no_cruzados = df_estrategia[df_estrategia['Estrategia'] == "No encontrado en Cámara/Twilio"]
-                df_estrategia_valida = df_estrategia[df_estrategia['Estrategia'].isin(["Twilio", "Manual / Cámara"])]
+                df_estrategia_valida = df_estrategia[df_estrategia['Estrategia'].isin(["Twilio", "Cámara"])]
 
                 if not df_estrategia_valida.empty:
                     resumen_estrategia = df_estrategia_valida.groupby('Estrategia').agg(
@@ -775,7 +781,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         fig_efectividad_estrategia.update_traces(texttemplate='%{text:.1f}%')
                         fig_efectividad_estrategia.update_layout(yaxis_ticksuffix="%")
                         st.plotly_chart(fig_efectividad_estrategia, use_container_width=True)
-                        st.caption("% de Efectividad = (Encuestas Exitosas de la estrategia ÷ Total de gestiones de la estrategia) × 100. Este gráfico solo compara estrategias reales encontradas en Cámara o Twilio.")
+                        st.caption("% de Efectividad = (Encuestas Exitosas de la estrategia declarada ÷ Total de gestiones de la estrategia declarada) × 100. Plataforma web se clasifica como Twilio y Celular/Tablet como Cámara.")
 
                     with col_est2:
                         volumen_estrategia = resumen_estrategia.melt(
@@ -799,21 +805,48 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             labels={'Cantidad': 'Cantidad', 'Estrategia': 'Estrategia de Contacto'}
                         )
                         st.plotly_chart(fig_volumen_estrategia, use_container_width=True)
-                        st.caption("El volumen compara el total de gestiones registradas contra la cantidad de gestiones que terminaron en Éxito Total para Twilio y Manual / Cámara.")
+                        st.caption("El volumen compara el total de gestiones registradas contra la cantidad de gestiones que terminaron en Éxito Total para Twilio y Cámara según el medio declarado.")
 
                     st.dataframe(resumen_estrategia, use_container_width=True)
                 else:
-                    st.warning("No se encontraron gestiones cruzadas con Cámara o Twilio para comparar estrategias.")
+                    st.warning("No se encontraron gestiones clasificadas como Twilio o Cámara para comparar estrategias.")
 
-                total_gestiones_auditoria = len(df_estrategia)
-                total_no_cruzados = len(df_no_cruzados)
-                porcentaje_no_cruzados = (total_no_cruzados / total_gestiones_auditoria) * 100 if total_gestiones_auditoria > 0 else 0
-                st.subheader("Control de Calidad del Cruce Técnico")
-                st.metric("Gestiones no encontradas en Cámara/Twilio", f"{porcentaje_no_cruzados:.1f}%", f"{total_no_cruzados} de {total_gestiones_auditoria}")
-                if porcentaje_no_cruzados > 2:
-                    st.error("El porcentaje de gestiones no encontradas supera el margen esperado del 2%. Se recomienda revisar normalización de teléfonos, columnas de cruce y completitud de los logs técnicos.")
-                else:
-                    st.success("El porcentaje de gestiones no encontradas está dentro del margen esperado menor o igual al 2%.")
+                st.subheader("Control de Calidad del Cruce Técnico Esperado")
+                resumen_respaldo = df_estrategia_valida.groupby('Estrategia').agg(
+                    Total_Gestiones=('tel_link', 'count'),
+                    Gestiones_Con_Respaldo_Esperado=('Respaldo_Esperado', 'sum')
+                ).reset_index()
+                if not resumen_respaldo.empty:
+                    resumen_respaldo['Gestiones_Sin_Respaldo_Esperado'] = resumen_respaldo['Total_Gestiones'] - resumen_respaldo['Gestiones_Con_Respaldo_Esperado']
+                    resumen_respaldo['% Sin Respaldo Esperado'] = (resumen_respaldo['Gestiones_Sin_Respaldo_Esperado'] / resumen_respaldo['Total_Gestiones']) * 100
+
+                    cols_respaldo = st.columns(len(resumen_respaldo))
+                    for idx, row in resumen_respaldo.iterrows():
+                        with cols_respaldo[idx]:
+                            st.metric(
+                                f"{row['Estrategia']} sin respaldo esperado",
+                                f"{row['% Sin Respaldo Esperado']:.1f}%",
+                                f"{int(row['Gestiones_Sin_Respaldo_Esperado'])} de {int(row['Total_Gestiones'])}"
+                            )
+
+                    fig_respaldo = px.bar(
+                        resumen_respaldo,
+                        x='Estrategia',
+                        y='% Sin Respaldo Esperado',
+                        color='Estrategia',
+                        text='% Sin Respaldo Esperado',
+                        title="Gestiones sin Respaldo Técnico Esperado",
+                        labels={'% Sin Respaldo Esperado': '% sin respaldo esperado', 'Estrategia': 'Estrategia Declarada'}
+                    )
+                    fig_respaldo.update_traces(texttemplate='%{text:.1f}%')
+                    fig_respaldo.update_layout(yaxis_ticksuffix="%")
+                    st.plotly_chart(fig_respaldo, use_container_width=True)
+                    st.caption("Validación esperada: las gestiones declaradas como Plataforma web deben aparecer en Twilio, y las declaradas como Celular/Tablet deben aparecer en Cámara.")
+
+                    if (resumen_respaldo['% Sin Respaldo Esperado'] > 2).any():
+                        st.error("Una o más estrategias superan el margen esperado del 2% sin respaldo técnico. Se recomienda revisar completitud de logs, fechas de corte y consistencia de los teléfonos.")
+                    else:
+                        st.success("Todas las estrategias están dentro del margen esperado menor o igual al 2% sin respaldo técnico.")
                 
             st.stop()
 
