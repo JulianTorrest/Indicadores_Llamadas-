@@ -1159,11 +1159,31 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     if not df_hora.empty:
                         df_hora["Hora"] = df_hora["fecha_llamada"].dt.hour
                         
-                        # Identificar llamadas exitosas cruzando con Base de Gestiones
                         df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                        df_g_filtrado = df_g.copy()
+                        col_encuestador_g = "Nombre del o de la encuestadora"
+                        col_constructora_g = "Constructora"
+
+                        if not df_g_filtrado.empty:
+                            f1, f2 = st.columns(2)
+                            if col_encuestador_g in df_g_filtrado.columns:
+                                opciones_enc = ["Todos"] + sorted(df_g_filtrado[col_encuestador_g].dropna().unique().tolist())
+                                sel_enc = f1.selectbox("Filtrar por Encuestador", opciones_enc, key="camara_hora_enc")
+                                if sel_enc != "Todos":
+                                    df_g_filtrado = df_g_filtrado[df_g_filtrado[col_encuestador_g] == sel_enc]
+                            if col_constructora_g in df_g_filtrado.columns:
+                                opciones_const = ["Todas"] + sorted(df_g_filtrado[col_constructora_g].dropna().unique().tolist())
+                                sel_const = f2.selectbox("Filtrar por Constructora", opciones_const, key="camara_hora_const")
+                                if sel_const != "Todas":
+                                    df_g_filtrado = df_g_filtrado[df_g_filtrado[col_constructora_g] == sel_const]
+
+                            if "tel_link" in df_g_filtrado.columns and "tel_link" in df_hora.columns:
+                                tels_filtro = set(df_g_filtrado["tel_link"].dropna().unique())
+                                df_hora = df_hora[df_hora["tel_link"].isin(tels_filtro)]
+
                         tels_exito = set()
-                        if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
-                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
+                        if not df_g_filtrado.empty and "Resultado de la gestión (Agrupado)" in df_g_filtrado.columns and "tel_link" in df_g_filtrado.columns:
+                            tels_exito = set(df_g_filtrado[df_g_filtrado["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
                         
                         df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
                         
@@ -1213,11 +1233,31 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     if not df_hora.empty:
                         df_hora["Hora"] = df_hora["Start Time"].dt.hour
                         
-                        # Identificar llamadas exitosas cruzando con Base de Gestiones
                         df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                        df_g_filtrado = df_g.copy()
+                        col_encuestador_g = "Nombre del o de la encuestadora"
+                        col_constructora_g = "Constructora"
+
+                        if not df_g_filtrado.empty:
+                            f1, f2 = st.columns(2)
+                            if col_encuestador_g in df_g_filtrado.columns:
+                                opciones_enc = ["Todos"] + sorted(df_g_filtrado[col_encuestador_g].dropna().unique().tolist())
+                                sel_enc = f1.selectbox("Filtrar por Encuestador", opciones_enc, key="twilio_hora_enc")
+                                if sel_enc != "Todos":
+                                    df_g_filtrado = df_g_filtrado[df_g_filtrado[col_encuestador_g] == sel_enc]
+                            if col_constructora_g in df_g_filtrado.columns:
+                                opciones_const = ["Todas"] + sorted(df_g_filtrado[col_constructora_g].dropna().unique().tolist())
+                                sel_const = f2.selectbox("Filtrar por Constructora", opciones_const, key="twilio_hora_const")
+                                if sel_const != "Todas":
+                                    df_g_filtrado = df_g_filtrado[df_g_filtrado[col_constructora_g] == sel_const]
+
+                            if "tel_link" in df_g_filtrado.columns and "tel_link" in df_hora.columns:
+                                tels_filtro = set(df_g_filtrado["tel_link"].dropna().unique())
+                                df_hora = df_hora[df_hora["tel_link"].isin(tels_filtro)]
+
                         tels_exito = set()
-                        if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns:
-                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
+                        if not df_g_filtrado.empty and "Resultado de la gestión (Agrupado)" in df_g_filtrado.columns and "tel_link" in df_g_filtrado.columns:
+                            tels_exito = set(df_g_filtrado[df_g_filtrado["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
                         
                         df_hora["Es_Exito"] = df_hora["tel_link"].isin(tels_exito).astype(int)
                         
