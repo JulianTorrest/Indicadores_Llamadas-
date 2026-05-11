@@ -669,7 +669,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             title=f"Desempeño Diario - {sel_enc_perf}" if sel_enc_perf != "Todos" else "Desempeño Diario Consolidado",
                             xaxis=dict(title="Fecha"),
                             yaxis=dict(title="Cantidad de llamadas"),
-                            yaxis2=dict(title="% Efectividad", overlaying="y", side="right", ticksuffix="%"),
+                            yaxis2=dict(title="% Efectividad", overlaying="y", side="right", ticksuffix="%", range=[0, 100]),
                             legend=dict(title="Métrica", x=1.12, y=1, xanchor="left", yanchor="top"),
                             margin=dict(r=180)
                         )
