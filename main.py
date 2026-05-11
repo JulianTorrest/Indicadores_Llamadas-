@@ -1098,11 +1098,39 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 col_enc = "encuestador"
                 col_min = "minutos_redondeados"
                 if col_enc in df_base.columns and col_min in df_base.columns:
-                    prod_enc = df_base.groupby(col_enc)[col_min].sum().sort_values(ascending=False).reset_index()
-                    fig_prod = px.bar(prod_enc, x=col_enc, y=col_min,
-                                      title="Total Minutos por Encuestador",
-                                      labels={col_min: 'Minutos Totales', col_enc: 'Encuestador'},
-                                      color=col_min, text_auto=True)
+                    df_prod = df_base.copy()
+                    df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                    df_entregados = datos.get("Entregados", pd.DataFrame())
+
+                    tels_exito = set()
+                    if not df_g.empty and "Resultado de la gestión (Agrupado)" in df_g.columns and "tel_link" in df_g.columns:
+                        tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
+
+                    tels_entregados = set()
+                    if not df_entregados.empty and "tel_link" in df_entregados.columns:
+                        tels_entregados = set(df_entregados["tel_link"].dropna().unique())
+
+                    df_prod["Llamada_Efectiva"] = df_prod["tel_link"].isin(tels_exito).astype(int) if "tel_link" in df_prod.columns else 0
+                    df_prod["Numero_Entregado"] = df_prod["tel_link"].isin(tels_entregados).astype(int) if "tel_link" in df_prod.columns else 0
+
+                    prod_enc = df_prod.groupby(col_enc).agg(
+                        Minutos_Totales=(col_min, "sum"),
+                        Llamadas_Realizadas=(col_enc, "count"),
+                        Llamadas_Efectivas=("Llamada_Efectiva", "sum"),
+                        Numeros_Entregados=("Numero_Entregado", "sum")
+                    ).sort_values("Minutos_Totales", ascending=False).reset_index()
+
+                    prod_enc_largo = prod_enc.melt(
+                        id_vars=col_enc,
+                        value_vars=["Minutos_Totales", "Llamadas_Realizadas", "Llamadas_Efectivas", "Numeros_Entregados"],
+                        var_name="Métrica",
+                        value_name="Total"
+                    )
+
+                    fig_prod = px.bar(prod_enc_largo, x=col_enc, y="Total", color="Métrica",
+                                      title="Total Minutos, Llamadas, Efectivas y Entregados por Encuestador",
+                                      labels={"Total": "Total", col_enc: "Encuestador"},
+                                      barmode="group", text_auto=True)
                     st.plotly_chart(fig_prod, use_container_width=True)
                 else:
                     st.info("Faltan columnas de encuestador o minutos para este análisis.")
