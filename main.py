@@ -906,7 +906,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
         
         # Metricas Principales
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Gestiones", len(df_base))
+        if hoja_seleccionada != "Twilio":
+            col1.metric("Total Gestiones", len(df_base))
 
         # Métrica de Encuestadores Activos
         if hoja_seleccionada in ["Base_gestiones realizadas", "Contactados"]:
@@ -965,8 +966,6 @@ if os.path.exists(NOMBRE_ARCHIVO):
             col1.metric("Total Llamadas Twilio", len(df_base))
             
             if "Duration" in df_base.columns:
-                avg_dur = df_base["Duration"].mean()
-                col3.metric("Duración Promedio", f"{avg_dur:.1f}s")
                 duraciones_validas = df_base["Duration"].dropna()
                 if not duraciones_validas.empty:
                     col4, col5, col6, col7 = st.columns(4)
