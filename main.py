@@ -952,6 +952,15 @@ if os.path.exists(NOMBRE_ARCHIVO):
             else:
                 col3.metric("Total Minutos", "N/A")
 
+            if "segundos" in df_base.columns:
+                duraciones_validas = df_base["segundos"].dropna()
+                if not duraciones_validas.empty:
+                    col4, col5, col6, col7 = st.columns(4)
+                    col4.metric("Duración Promedio", f"{duraciones_validas.mean():.1f}s")
+                    col5.metric("Llamada Más Larga", f"{duraciones_validas.max():.0f}s")
+                    col6.metric("Llamada Más Corta", f"{duraciones_validas.min():.0f}s")
+                    col7.metric("Mediana Duración", f"{duraciones_validas.median():.1f}s")
+
         elif hoja_seleccionada == "Twilio":
             col1.metric("Total Llamadas Twilio", len(df_base))
             
