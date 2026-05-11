@@ -616,47 +616,52 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             df_perf = df_perf[df_perf["Franja Horaria"].astype(str) == sel_franja_perf]
 
                     if not df_perf.empty:
-                        fecha_inicio = df_perf.groupby(col_encuestador_perf)["Marca temporal"].min().dt.date.reset_index(name="Fecha_Inicio")
                         desempeño_diario = df_perf.groupby([col_encuestador_perf, "Fecha"]).agg(
                             Llamadas_Realizadas=("tel_link", "count"),
                             Llamadas_Efectivas=("Es_Exito", "sum")
                         ).reset_index()
-                        desempeño_diario = pd.merge(desempeño_diario, fecha_inicio, on=col_encuestador_perf, how="left")
-                        desempeño_diario["Día desde inicio"] = (
-                            pd.to_datetime(desempeño_diario["Fecha"]) - pd.to_datetime(desempeño_diario["Fecha_Inicio"])
-                        ).dt.days + 1
                         desempeño_diario["% Efectividad"] = desempeño_diario["Llamadas_Efectivas"] / desempeño_diario["Llamadas_Realizadas"] * 100
+                        desempeño_diario["Fecha"] = pd.to_datetime(desempeño_diario["Fecha"])
+                        desempeño_diario["Fecha (día/mes)"] = desempeño_diario["Fecha"].dt.strftime("%d/%m")
 
-                        fig_vol_perf = px.line(
-                            desempeño_diario,
-                            x="Día desde inicio",
-                            y=["Llamadas_Realizadas", "Llamadas_Efectivas"],
-                            color=col_encuestador_perf,
-                            markers=True,
-                            title="Llamadas Realizadas vs Llamadas Efectivas por Día desde Inicio",
-                            labels={"value": "Cantidad", "variable": "Métrica", col_encuestador_perf: "Encuestador"}
+                        desempeño_largo = desempeño_diario.melt(
+                            id_vars=[col_encuestador_perf, "Fecha", "Fecha (día/mes)"],
+                            value_vars=["Llamadas_Realizadas", "Llamadas_Efectivas", "% Efectividad"],
+                            var_name="Métrica",
+                            value_name="Valor"
                         )
-                        st.plotly_chart(fig_vol_perf, use_container_width=True)
 
-                        fig_efec_perf = px.line(
-                            desempeño_diario,
-                            x="Día desde inicio",
-                            y="% Efectividad",
-                            color=col_encuestador_perf,
-                            markers=True,
-                            title="% de Efectividad Diario por Encuestador desde Inicio",
-                            labels={"% Efectividad": "% Efectividad", col_encuestador_perf: "Encuestador"}
-                        )
-                        fig_efec_perf.update_layout(yaxis_ticksuffix="%")
-                        st.plotly_chart(fig_efec_perf, use_container_width=True)
+                        if sel_enc_perf != "Todos":
+                            fig_perf = px.line(
+                                desempeño_largo.sort_values("Fecha"),
+                                x="Fecha (día/mes)",
+                                y="Valor",
+                                color="Métrica",
+                                markers=True,
+                                title=f"Desempeño Diario - {sel_enc_perf}",
+                                labels={"Valor": "Cantidad / %", "Fecha (día/mes)": "Fecha"}
+                            )
+                        else:
+                            fig_perf = px.line(
+                                desempeño_largo.sort_values("Fecha"),
+                                x="Fecha (día/mes)",
+                                y="Valor",
+                                color="Métrica",
+                                line_dash=col_encuestador_perf,
+                                markers=True,
+                                title="Desempeño Diario por Encuestador",
+                                labels={"Valor": "Cantidad / %", "Fecha (día/mes)": "Fecha", col_encuestador_perf: "Encuestador"}
+                            )
 
-                        st.dataframe(desempeño_diario.sort_values([col_encuestador_perf, "Día desde inicio"]))
+                        fig_perf.update_traces(textposition="top center")
+                        st.plotly_chart(fig_perf, use_container_width=True)
+
+                        st.dataframe(desempeño_diario.sort_values([col_encuestador_perf, "Fecha"]))
                     else:
                         st.warning("No hay datos disponibles con los filtros seleccionados para analizar el desempeño diario.")
                 else:
                     st.warning("No están disponibles las columnas necesarias para calcular el desempeño diario por encuestador.")
 
-                
                 # 4. Análisis específico de "Llamar después" (Seguimiento)
                 st.subheader("Evolución de los casos 'Llamar Después'")
                 
