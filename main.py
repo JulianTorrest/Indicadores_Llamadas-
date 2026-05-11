@@ -18,7 +18,11 @@ def limpiar_telefono(tel):
     s = ''.join(filter(str.isdigit, s))
     if s.startswith('57') and len(s) > 10:
         s = s[2:]
-    return s
+    if len(s) > 10:
+        s = s[-10:]
+    if len(s) == 10 and s.startswith('3'):
+        return s
+    return None
 
 def agrupar_resultado_gestion(valor):
     if pd.isna(valor): return "Otros"
