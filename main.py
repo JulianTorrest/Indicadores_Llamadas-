@@ -967,6 +967,13 @@ if os.path.exists(NOMBRE_ARCHIVO):
             if "Duration" in df_base.columns:
                 avg_dur = df_base["Duration"].mean()
                 col3.metric("Duración Promedio", f"{avg_dur:.1f}s")
+                duraciones_validas = df_base["Duration"].dropna()
+                if not duraciones_validas.empty:
+                    col4, col5, col6, col7 = st.columns(4)
+                    col4.metric("Duración Promedio", f"{duraciones_validas.mean():.1f}s")
+                    col5.metric("Llamada Más Larga", f"{duraciones_validas.max():.0f}s")
+                    col6.metric("Llamada Más Corta", f"{duraciones_validas.min():.0f}s")
+                    col7.metric("Mediana Duración", f"{duraciones_validas.median():.1f}s")
 
         # Visualizaciones de limpieza solicitadas
         if hoja_seleccionada in ["Base_gestiones realizadas", "Contactados"]:
