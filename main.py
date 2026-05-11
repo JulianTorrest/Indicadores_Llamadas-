@@ -175,6 +175,8 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 
                 if "To" in df.columns:
                     df["tel_link"] = df["To"].apply(limpiar_telefono)
+                if "From" in df.columns:
+                    df["tel_from"] = df["From"].apply(limpiar_telefono)
 
             datos_limpios[nombre_hoja] = df
         return datos_limpios
@@ -1237,6 +1239,11 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         df_encuestadores = df_g[["tel_link", col_encuestador_g]].dropna().drop_duplicates("tel_link")
                         df_prod = pd.merge(df_prod, df_encuestadores, on="tel_link", how="left")
                         df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna("Sin Encuestador")
+                        if "tel_from" in df_prod.columns:
+                            df_prod[col_encuestador_g] = df_prod[col_encuestador_g].where(
+                                df_prod[col_encuestador_g] != "Sin Encuestador",
+                                df_prod["tel_from"].fillna("Sin Encuestador")
+                            )
 
                         tels_exito = set()
                         if "Resultado de la gestión (Agrupado)" in df_g.columns:
