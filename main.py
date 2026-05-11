@@ -675,6 +675,77 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         )
                         st.plotly_chart(fig_perf, use_container_width=True)
 
+                        st.subheader("Desempeño por Fecha y Hora")
+                        df_perf_hora = df_perf.copy()
+                        df_perf_hora["Fecha_Hora"] = df_perf_hora["Marca temporal"].dt.floor("H")
+                        desempeño_hora = df_perf_hora.groupby([col_encuestador_perf, "Fecha_Hora"]).agg(
+                            Llamadas_Realizadas=("tel_link", "count"),
+                            Llamadas_Efectivas=("Es_Exito", "sum")
+                        ).reset_index()
+                        desempeño_hora["% Efectividad"] = desempeño_hora["Llamadas_Efectivas"] / desempeño_hora["Llamadas_Realizadas"] * 100
+
+                        if sel_enc_perf != "Todos":
+                            df_plot_hora = desempeño_hora.sort_values("Fecha_Hora")
+                        else:
+                            df_plot_hora = desempeño_hora.groupby("Fecha_Hora").agg(
+                                Llamadas_Realizadas=("Llamadas_Realizadas", "sum"),
+                                Llamadas_Efectivas=("Llamadas_Efectivas", "sum")
+                            ).reset_index().sort_values("Fecha_Hora")
+                            df_plot_hora["% Efectividad"] = df_plot_hora["Llamadas_Efectivas"] / df_plot_hora["Llamadas_Realizadas"] * 100
+
+                        fig_perf_hora = go.Figure()
+                        fig_perf_hora.add_trace(go.Scatter(
+                            x=df_plot_hora["Fecha_Hora"],
+                            y=df_plot_hora["Llamadas_Realizadas"],
+                            mode="lines+markers+text",
+                            name="Llamadas Realizadas",
+                            text=df_plot_hora["Llamadas_Realizadas"].round(0).astype(int).astype(str),
+                            textposition="top center",
+                            line=dict(color="#1f77b4"),
+                            yaxis="y"
+                        ))
+                        fig_perf_hora.add_trace(go.Scatter(
+                            x=df_plot_hora["Fecha_Hora"],
+                            y=df_plot_hora["Llamadas_Efectivas"],
+                            mode="lines+markers+text",
+                            name="Llamadas Efectivas",
+                            text=df_plot_hora["Llamadas_Efectivas"].round(0).astype(int).astype(str),
+                            textposition="bottom center",
+                            line=dict(color="#66b3ff"),
+                            yaxis="y"
+                        ))
+                        fig_perf_hora.add_trace(go.Scatter(
+                            x=df_plot_hora["Fecha_Hora"],
+                            y=df_plot_hora["% Efectividad"],
+                            mode="lines+markers+text",
+                            name="% Efectividad",
+                            text=df_plot_hora["% Efectividad"].round(1).astype(str) + "%",
+                            textposition="top center",
+                            line=dict(color="#ff3333"),
+                            yaxis="y2"
+                        ))
+                        fig_perf_hora.update_layout(
+                            title=f"Desempeño por Fecha y Hora - {sel_enc_perf}" if sel_enc_perf != "Todos" else "Desempeño Consolidado por Fecha y Hora",
+                            xaxis=dict(
+                                title="Fecha y hora",
+                                rangeslider=dict(visible=True),
+                                rangeselector=dict(
+                                    buttons=[
+                                        dict(count=6, label="6h", step="hour", stepmode="backward"),
+                                        dict(count=12, label="12h", step="hour", stepmode="backward"),
+                                        dict(count=1, label="1d", step="day", stepmode="backward"),
+                                        dict(count=7, label="7d", step="day", stepmode="backward"),
+                                        dict(step="all", label="Todo")
+                                    ]
+                                )
+                            ),
+                            yaxis=dict(title="Cantidad de llamadas"),
+                            yaxis2=dict(title="% Efectividad", overlaying="y", side="right", ticksuffix="%", range=[0, 100]),
+                            legend=dict(title="Métrica", x=1.12, y=1, xanchor="left", yanchor="top"),
+                            margin=dict(r=180)
+                        )
+                        st.plotly_chart(fig_perf_hora, use_container_width=True)
+
                         st.dataframe(desempeño_diario.sort_values([col_encuestador_perf, "Fecha"]))
                     else:
                         st.warning("No hay datos disponibles con los filtros seleccionados para analizar el desempeño diario.")
