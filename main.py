@@ -141,8 +141,8 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 if "encuestador" in df.columns:
                     df["encuestador"] = df["encuestador"].apply(limpiar_texto)
                 
-                if "telefono_destino" in df.columns:
-                    df["tel_link"] = df["telefono_destino"].apply(limpiar_telefono)
+                if "numero_marcado" in df.columns:
+                    df["tel_link"] = df["numero_marcado"].apply(limpiar_telefono)
 
                 # Estandarizar fecha de llamada
                 if "fecha_llamada" in df.columns:
