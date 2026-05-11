@@ -154,6 +154,8 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 
                 if "numero_marcado" in df.columns:
                     df["tel_link"] = df["numero_marcado"].apply(limpiar_telefono)
+                if "telefono_origen" in df.columns:
+                    df["tel_origen"] = df["telefono_origen"].apply(limpiar_telefono)
 
                 # Estandarizar fecha de llamada
                 if "fecha_llamada" in df.columns:
@@ -1234,10 +1236,14 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_prod = df_base.copy()
                     df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
                     df_entregados = datos.get("Entregados", pd.DataFrame())
+                    df_camara = datos.get("Camara_llamadas_salientes", pd.DataFrame())
 
                     if not df_g.empty and "tel_link" in df_g.columns and col_encuestador_g in df_g.columns:
                         mapa_encuestadores = df_g.dropna(subset=["tel_link", col_encuestador_g]).drop_duplicates("tel_link").set_index("tel_link")[col_encuestador_g]
                         df_prod[col_encuestador_g] = df_prod["tel_link"].map(mapa_encuestadores)
+                        if not df_camara.empty and "tel_origen" in df_camara.columns and "encuestador" in df_camara.columns and "tel_from" in df_prod.columns:
+                            mapa_origen_encuestador = df_camara.dropna(subset=["tel_origen", "encuestador"]).drop_duplicates("tel_origen").set_index("tel_origen")["encuestador"]
+                            df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna(df_prod["tel_from"].map(mapa_origen_encuestador))
                         if "tel_from" in df_prod.columns:
                             df_prod[col_encuestador_g] = df_prod[col_encuestador_g].where(
                                 df_prod[col_encuestador_g].notna(),
