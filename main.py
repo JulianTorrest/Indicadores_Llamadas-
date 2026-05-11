@@ -725,6 +725,76 @@ if os.path.exists(NOMBRE_ARCHIVO):
                                    title="Validación de Gestiones Manuales vs Logs de Telefonía")
                 fig_audit.update_traces(textinfo='percent+label')
                 st.plotly_chart(fig_audit, use_container_width=True)
+
+                st.divider()
+                st.subheader("Comparativo de Efectividad por Estrategia de Contacto")
+
+                tels_twilio = set()
+                tels_camara = set()
+                if not df_t.empty and 'tel_link' in df_t.columns:
+                    tels_twilio = set(df_t['tel_link'].dropna().unique())
+                if not df_c.empty and 'tel_link' in df_c.columns:
+                    tels_camara = set(df_c['tel_link'].dropna().unique())
+
+                def clasificar_estrategia(tel):
+                    if tel in tels_twilio:
+                        return "Twilio"
+                    if tel in tels_camara:
+                        return "Manual / Cámara"
+                    return "Solo Manual / Sin Respaldo"
+
+                df_estrategia = df_g.copy()
+                df_estrategia['Estrategia'] = df_estrategia['tel_link'].apply(clasificar_estrategia)
+                df_estrategia['Es_Exito'] = df_estrategia["Resultado de la gestión (Agrupado)"] == "Éxito Total"
+
+                resumen_estrategia = df_estrategia.groupby('Estrategia').agg(
+                    Total_Gestiones=('tel_link', 'count'),
+                    Encuestas_Exitosas=('Es_Exito', 'sum')
+                ).reset_index()
+                resumen_estrategia['No_Exitosas'] = resumen_estrategia['Total_Gestiones'] - resumen_estrategia['Encuestas_Exitosas']
+                resumen_estrategia['Tasa_Efectividad'] = (resumen_estrategia['Encuestas_Exitosas'] / resumen_estrategia['Total_Gestiones']) * 100
+
+                col_est1, col_est2 = st.columns(2)
+                with col_est1:
+                    fig_efectividad_estrategia = px.bar(
+                        resumen_estrategia,
+                        x='Estrategia',
+                        y='Tasa_Efectividad',
+                        color='Estrategia',
+                        text='Tasa_Efectividad',
+                        title="Barras Comparativas de Efectividad",
+                        labels={'Tasa_Efectividad': '% de Efectividad', 'Estrategia': 'Estrategia de Contacto'}
+                    )
+                    fig_efectividad_estrategia.update_traces(texttemplate='%{text:.1f}%')
+                    fig_efectividad_estrategia.update_layout(yaxis_ticksuffix="%")
+                    st.plotly_chart(fig_efectividad_estrategia, use_container_width=True)
+                    st.caption("% de Efectividad = (Encuestas Exitosas de la estrategia ÷ Total de gestiones de la estrategia) × 100.")
+
+                with col_est2:
+                    volumen_estrategia = resumen_estrategia.melt(
+                        id_vars='Estrategia',
+                        value_vars=['Total_Gestiones', 'Encuestas_Exitosas'],
+                        var_name='Métrica',
+                        value_name='Cantidad'
+                    )
+                    volumen_estrategia['Métrica'] = volumen_estrategia['Métrica'].replace({
+                        'Total_Gestiones': 'Total Gestiones',
+                        'Encuestas_Exitosas': 'Encuestas Exitosas'
+                    })
+                    fig_volumen_estrategia = px.bar(
+                        volumen_estrategia,
+                        x='Estrategia',
+                        y='Cantidad',
+                        color='Métrica',
+                        barmode='group',
+                        text_auto=True,
+                        title="Barras Comparativas de Volumen",
+                        labels={'Cantidad': 'Cantidad', 'Estrategia': 'Estrategia de Contacto'}
+                    )
+                    st.plotly_chart(fig_volumen_estrategia, use_container_width=True)
+                    st.caption("El volumen compara el total de gestiones registradas contra la cantidad de gestiones que terminaron en Éxito Total para cada estrategia.")
+
+                st.dataframe(resumen_estrategia, use_container_width=True)
                 
             st.stop()
 
