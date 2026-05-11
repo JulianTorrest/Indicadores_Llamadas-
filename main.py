@@ -745,60 +745,75 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         return "Twilio"
                     if tel in tels_camara:
                         return "Manual / Cámara"
-                    return "Solo Manual / Sin Respaldo"
+                    return "No encontrado en Cámara/Twilio"
 
                 df_estrategia = df_g.copy()
                 df_estrategia['Estrategia'] = df_estrategia['tel_link'].apply(clasificar_estrategia)
                 df_estrategia['Es_Exito'] = df_estrategia["Resultado de la gestión (Agrupado)"] == "Éxito Total"
+                df_no_cruzados = df_estrategia[df_estrategia['Estrategia'] == "No encontrado en Cámara/Twilio"]
+                df_estrategia_valida = df_estrategia[df_estrategia['Estrategia'].isin(["Twilio", "Manual / Cámara"])]
 
-                resumen_estrategia = df_estrategia.groupby('Estrategia').agg(
-                    Total_Gestiones=('tel_link', 'count'),
-                    Encuestas_Exitosas=('Es_Exito', 'sum')
-                ).reset_index()
-                resumen_estrategia['No_Exitosas'] = resumen_estrategia['Total_Gestiones'] - resumen_estrategia['Encuestas_Exitosas']
-                resumen_estrategia['Tasa_Efectividad'] = (resumen_estrategia['Encuestas_Exitosas'] / resumen_estrategia['Total_Gestiones']) * 100
+                if not df_estrategia_valida.empty:
+                    resumen_estrategia = df_estrategia_valida.groupby('Estrategia').agg(
+                        Total_Gestiones=('tel_link', 'count'),
+                        Encuestas_Exitosas=('Es_Exito', 'sum')
+                    ).reset_index()
+                    resumen_estrategia['No_Exitosas'] = resumen_estrategia['Total_Gestiones'] - resumen_estrategia['Encuestas_Exitosas']
+                    resumen_estrategia['Tasa_Efectividad'] = (resumen_estrategia['Encuestas_Exitosas'] / resumen_estrategia['Total_Gestiones']) * 100
 
-                col_est1, col_est2 = st.columns(2)
-                with col_est1:
-                    fig_efectividad_estrategia = px.bar(
-                        resumen_estrategia,
-                        x='Estrategia',
-                        y='Tasa_Efectividad',
-                        color='Estrategia',
-                        text='Tasa_Efectividad',
-                        title="Barras Comparativas de Efectividad",
-                        labels={'Tasa_Efectividad': '% de Efectividad', 'Estrategia': 'Estrategia de Contacto'}
-                    )
-                    fig_efectividad_estrategia.update_traces(texttemplate='%{text:.1f}%')
-                    fig_efectividad_estrategia.update_layout(yaxis_ticksuffix="%")
-                    st.plotly_chart(fig_efectividad_estrategia, use_container_width=True)
-                    st.caption("% de Efectividad = (Encuestas Exitosas de la estrategia ÷ Total de gestiones de la estrategia) × 100.")
+                    col_est1, col_est2 = st.columns(2)
+                    with col_est1:
+                        fig_efectividad_estrategia = px.bar(
+                            resumen_estrategia,
+                            x='Estrategia',
+                            y='Tasa_Efectividad',
+                            color='Estrategia',
+                            text='Tasa_Efectividad',
+                            title="Barras Comparativas de Efectividad",
+                            labels={'Tasa_Efectividad': '% de Efectividad', 'Estrategia': 'Estrategia de Contacto'}
+                        )
+                        fig_efectividad_estrategia.update_traces(texttemplate='%{text:.1f}%')
+                        fig_efectividad_estrategia.update_layout(yaxis_ticksuffix="%")
+                        st.plotly_chart(fig_efectividad_estrategia, use_container_width=True)
+                        st.caption("% de Efectividad = (Encuestas Exitosas de la estrategia ÷ Total de gestiones de la estrategia) × 100. Este gráfico solo compara estrategias reales encontradas en Cámara o Twilio.")
 
-                with col_est2:
-                    volumen_estrategia = resumen_estrategia.melt(
-                        id_vars='Estrategia',
-                        value_vars=['Total_Gestiones', 'Encuestas_Exitosas'],
-                        var_name='Métrica',
-                        value_name='Cantidad'
-                    )
-                    volumen_estrategia['Métrica'] = volumen_estrategia['Métrica'].replace({
-                        'Total_Gestiones': 'Total Gestiones',
-                        'Encuestas_Exitosas': 'Encuestas Exitosas'
-                    })
-                    fig_volumen_estrategia = px.bar(
-                        volumen_estrategia,
-                        x='Estrategia',
-                        y='Cantidad',
-                        color='Métrica',
-                        barmode='group',
-                        text_auto=True,
-                        title="Barras Comparativas de Volumen",
-                        labels={'Cantidad': 'Cantidad', 'Estrategia': 'Estrategia de Contacto'}
-                    )
-                    st.plotly_chart(fig_volumen_estrategia, use_container_width=True)
-                    st.caption("El volumen compara el total de gestiones registradas contra la cantidad de gestiones que terminaron en Éxito Total para cada estrategia.")
+                    with col_est2:
+                        volumen_estrategia = resumen_estrategia.melt(
+                            id_vars='Estrategia',
+                            value_vars=['Total_Gestiones', 'Encuestas_Exitosas'],
+                            var_name='Métrica',
+                            value_name='Cantidad'
+                        )
+                        volumen_estrategia['Métrica'] = volumen_estrategia['Métrica'].replace({
+                            'Total_Gestiones': 'Total Gestiones',
+                            'Encuestas_Exitosas': 'Encuestas Exitosas'
+                        })
+                        fig_volumen_estrategia = px.bar(
+                            volumen_estrategia,
+                            x='Estrategia',
+                            y='Cantidad',
+                            color='Métrica',
+                            barmode='group',
+                            text_auto=True,
+                            title="Barras Comparativas de Volumen",
+                            labels={'Cantidad': 'Cantidad', 'Estrategia': 'Estrategia de Contacto'}
+                        )
+                        st.plotly_chart(fig_volumen_estrategia, use_container_width=True)
+                        st.caption("El volumen compara el total de gestiones registradas contra la cantidad de gestiones que terminaron en Éxito Total para Twilio y Manual / Cámara.")
 
-                st.dataframe(resumen_estrategia, use_container_width=True)
+                    st.dataframe(resumen_estrategia, use_container_width=True)
+                else:
+                    st.warning("No se encontraron gestiones cruzadas con Cámara o Twilio para comparar estrategias.")
+
+                total_gestiones_auditoria = len(df_estrategia)
+                total_no_cruzados = len(df_no_cruzados)
+                porcentaje_no_cruzados = (total_no_cruzados / total_gestiones_auditoria) * 100 if total_gestiones_auditoria > 0 else 0
+                st.subheader("Control de Calidad del Cruce Técnico")
+                st.metric("Gestiones no encontradas en Cámara/Twilio", f"{porcentaje_no_cruzados:.1f}%", f"{total_no_cruzados} de {total_gestiones_auditoria}")
+                if porcentaje_no_cruzados > 2:
+                    st.error("El porcentaje de gestiones no encontradas supera el margen esperado del 2%. Se recomienda revisar normalización de teléfonos, columnas de cruce y completitud de los logs técnicos.")
+                else:
+                    st.success("El porcentaje de gestiones no encontradas está dentro del margen esperado menor o igual al 2%.")
                 
             st.stop()
 
