@@ -24,6 +24,17 @@ def limpiar_telefono(tel):
         return s
     return None
 
+def limpiar_marca_temporal(valor):
+    if pd.isna(valor): return pd.NaT
+    s = str(valor).strip()
+    fecha_texto = pd.to_datetime(s, errors='coerce', format='%m/%d/%Y %H:%M')
+    if pd.notna(fecha_texto):
+        return fecha_texto
+    fecha_iso = pd.to_datetime(s, errors='coerce', format='%Y-%m-%d')
+    if pd.notna(fecha_iso) and fecha_iso.month != 4 and fecha_iso.day == 4:
+        return pd.Timestamp(year=fecha_iso.year, month=fecha_iso.day, day=fecha_iso.month)
+    return fecha_iso
+
 def agrupar_resultado_gestion(valor):
     if pd.isna(valor): return "Otros"
     # Normalizar: minúsculas, sin espacios laterales y sin tildes
@@ -83,7 +94,7 @@ def cargar_y_limpiar_datos(ruta_archivo):
                 
                 # Estandarizar fecha, día y teléfono
                 if "Marca temporal" in df.columns:
-                    df["Marca temporal"] = pd.to_datetime(df["Marca temporal"], errors='coerce', dayfirst=True)
+                    df["Marca temporal"] = df["Marca temporal"].apply(limpiar_marca_temporal)
                     df["Dia_Semana"] = df["Marca temporal"].dt.day_name().map({
                         'Monday': '1. Lunes', 'Tuesday': '2. Martes', 'Wednesday': '3. Miércoles',
                         'Thursday': '4. Jueves', 'Friday': '5. Viernes', 'Saturday': '6. Sábado', 'Sunday': '7. Domingo'
