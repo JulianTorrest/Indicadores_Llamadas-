@@ -1211,7 +1211,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         st.warning("No se encontraron datos válidos en 'fecha_llamada' para generar el gráfico horario.")
 
         elif hoja_seleccionada == "Twilio":
-            tab1, tab2 = st.tabs(["Estado y Calidad", "Distribución Horaria"])
+            tab1, tab2, tab3 = st.tabs(["Estado y Calidad", "Productividad por Encuestador", "Distribución Horaria"])
             
             with tab1:
                 st.subheader("Estado Técnico de Llamadas")
@@ -1226,6 +1226,56 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     st.plotly_chart(fig_dir, use_container_width=True)
 
             with tab2:
+                st.subheader("Minutos Hablados por Encuestador")
+                col_duracion = "Duration"
+                col_encuestador_g = "Nombre del o de la encuestadora"
+                if col_duracion in df_base.columns and "tel_link" in df_base.columns:
+                    df_prod = df_base.copy()
+                    df_g = datos.get("Base_gestiones realizadas", pd.DataFrame())
+                    df_entregados = datos.get("Entregados", pd.DataFrame())
+
+                    if not df_g.empty and "tel_link" in df_g.columns and col_encuestador_g in df_g.columns:
+                        df_encuestadores = df_g[["tel_link", col_encuestador_g]].dropna().drop_duplicates("tel_link")
+                        df_prod = pd.merge(df_prod, df_encuestadores, on="tel_link", how="left")
+                        df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna("Sin Encuestador")
+
+                        tels_exito = set()
+                        if "Resultado de la gestión (Agrupado)" in df_g.columns:
+                            tels_exito = set(df_g[df_g["Resultado de la gestión (Agrupado)"] == "Éxito Total"]["tel_link"].dropna().unique())
+
+                        tels_entregados = set()
+                        if not df_entregados.empty and "tel_link" in df_entregados.columns:
+                            tels_entregados = set(df_entregados["tel_link"].dropna().unique())
+
+                        df_prod["Minutos_Twilio"] = df_prod[col_duracion] / 60
+                        df_prod["Llamada_Efectiva"] = df_prod["tel_link"].isin(tels_exito).astype(int)
+                        df_prod["Numero_Entregado"] = df_prod["tel_link"].isin(tels_entregados).astype(int)
+
+                        prod_enc = df_prod.groupby(col_encuestador_g).agg(
+                            Minutos_Totales=("Minutos_Twilio", "sum"),
+                            Llamadas_Realizadas=(col_encuestador_g, "count"),
+                            Llamadas_Efectivas=("Llamada_Efectiva", "sum"),
+                            Numeros_Entregados=("Numero_Entregado", "sum")
+                        ).sort_values("Minutos_Totales", ascending=False).reset_index()
+
+                        prod_enc_largo = prod_enc.melt(
+                            id_vars=col_encuestador_g,
+                            value_vars=["Minutos_Totales", "Llamadas_Realizadas", "Llamadas_Efectivas", "Numeros_Entregados"],
+                            var_name="Métrica",
+                            value_name="Total"
+                        )
+
+                        fig_prod = px.bar(prod_enc_largo, x=col_encuestador_g, y="Total", color="Métrica",
+                                          title="Total Minutos, Llamadas, Efectivas y Entregados por Encuestador (Twilio)",
+                                          labels={"Total": "Total", col_encuestador_g: "Encuestador"},
+                                          barmode="group", text_auto=True)
+                        st.plotly_chart(fig_prod, use_container_width=True)
+                    else:
+                        st.info("No se puede asignar encuestador porque faltan 'tel_link' o la columna de encuestador en la base manual.")
+                else:
+                    st.info("Faltan columnas de duración o teléfono para este análisis.")
+
+            with tab3:
                 st.subheader("Actividad por Hora (Picos de Llamadas)")
                 if "Start Time" in df_base.columns:
                     # Filtramos filas sin fecha válida para evitar que el gráfico salga vacío
