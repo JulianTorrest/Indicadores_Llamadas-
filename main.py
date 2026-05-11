@@ -677,7 +677,9 @@ if os.path.exists(NOMBRE_ARCHIVO):
 
                         st.subheader("Desempeño por Fecha y Hora")
                         df_perf_hora = df_perf.copy()
-                        df_perf_hora["Fecha_Hora"] = df_perf_hora["Marca temporal"].dt.floor("H")
+                        df_perf_hora["Marca temporal"] = pd.to_datetime(df_perf_hora["Marca temporal"], errors="coerce")
+                        df_perf_hora = df_perf_hora.dropna(subset=["Marca temporal"])
+                        df_perf_hora["Fecha_Hora"] = df_perf_hora["Marca temporal"].dt.floor("h")
                         desempeño_hora = df_perf_hora.groupby([col_encuestador_perf, "Fecha_Hora"]).agg(
                             Llamadas_Realizadas=("tel_link", "count"),
                             Llamadas_Efectivas=("Es_Exito", "sum")
