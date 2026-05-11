@@ -551,6 +551,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             fig_dia.update_traces(texttemplate='%{y:.1f}%')
                             fig_dia.update_layout(yaxis_ticksuffix="%")
                             st.plotly_chart(fig_dia, use_container_width=True)
+                            st.caption("% de Efectividad por Día = (gestiones con Éxito Total en ese día ÷ total de gestiones realizadas en ese día) × 100. Mide qué proporción de las gestiones de cada día terminó en Encuesta Exitosa.")
 
                         with col_hora:
                             fig_hora = px.bar(efectividad_hora, x='Franja Horaria', y='Es_Exito',
@@ -562,6 +563,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             fig_hora.update_traces(texttemplate='%{y:.1f}%')
                             fig_hora.update_layout(yaxis_ticksuffix="%")
                             st.plotly_chart(fig_hora, use_container_width=True)
+                            st.caption("% de Efectividad por Hora = (gestiones con Éxito Total en esa franja horaria ÷ total de gestiones realizadas en esa franja horaria) × 100. Mide qué proporción de las gestiones de cada horario terminó en Encuesta Exitosa.")
 
                         st.caption("Los valores más altos indican días u horas con mayor probabilidad de que la gestión termine en una Encuesta Exitosa. La efectividad se calcula como el promedio de éxitos (0% a 100%).")
                     else:
