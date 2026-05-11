@@ -1236,14 +1236,14 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_entregados = datos.get("Entregados", pd.DataFrame())
 
                     if not df_g.empty and "tel_link" in df_g.columns and col_encuestador_g in df_g.columns:
-                        df_encuestadores = df_g[["tel_link", col_encuestador_g]].dropna().drop_duplicates("tel_link")
-                        df_prod = pd.merge(df_prod, df_encuestadores, on="tel_link", how="left")
-                        df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna("Sin Encuestador")
+                        mapa_encuestadores = df_g.dropna(subset=["tel_link", col_encuestador_g]).drop_duplicates("tel_link").set_index("tel_link")[col_encuestador_g]
+                        df_prod[col_encuestador_g] = df_prod["tel_link"].map(mapa_encuestadores)
                         if "tel_from" in df_prod.columns:
                             df_prod[col_encuestador_g] = df_prod[col_encuestador_g].where(
-                                df_prod[col_encuestador_g] != "Sin Encuestador",
-                                df_prod["tel_from"].fillna("Sin Encuestador")
+                                df_prod[col_encuestador_g].notna(),
+                                df_prod["tel_from"]
                             )
+                        df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna("Sin Encuestador")
 
                         tels_exito = set()
                         if "Resultado de la gestión (Agrupado)" in df_g.columns:
