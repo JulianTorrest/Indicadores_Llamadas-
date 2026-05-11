@@ -640,6 +640,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             y=df_plot_perf["Llamadas_Realizadas"],
                             mode="lines+markers",
                             name="Llamadas Realizadas",
+                            text=df_plot_perf["Llamadas_Realizadas"].round(0).astype(int).astype(str),
+                            textposition="top center",
                             line=dict(color="#1f77b4"),
                             yaxis="y"
                         ))
@@ -648,6 +650,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             y=df_plot_perf["Llamadas_Efectivas"],
                             mode="lines+markers",
                             name="Llamadas Efectivas",
+                            text=df_plot_perf["Llamadas_Efectivas"].round(0).astype(int).astype(str),
+                            textposition="bottom center",
                             line=dict(color="#66b3ff"),
                             yaxis="y"
                         ))
@@ -656,6 +660,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             y=df_plot_perf["% Efectividad"],
                             mode="lines+markers",
                             name="% Efectividad",
+                            text=df_plot_perf["% Efectividad"].round(1).astype(str) + "%",
+                            textposition="top center",
                             line=dict(color="#ff3333"),
                             yaxis="y2"
                         ))
@@ -664,7 +670,8 @@ if os.path.exists(NOMBRE_ARCHIVO):
                             xaxis=dict(title="Fecha"),
                             yaxis=dict(title="Cantidad de llamadas"),
                             yaxis2=dict(title="% Efectividad", overlaying="y", side="right", ticksuffix="%"),
-                            legend=dict(title="Métrica")
+                            legend=dict(title="Métrica", x=1.12, y=1, xanchor="left", yanchor="top"),
+                            margin=dict(r=180)
                         )
                         st.plotly_chart(fig_perf, use_container_width=True)
 
