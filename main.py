@@ -1239,7 +1239,10 @@ if os.path.exists(NOMBRE_ARCHIVO):
                     df_camara = datos.get("Camara_llamadas_salientes", pd.DataFrame())
 
                     if not df_g.empty and "tel_link" in df_g.columns and col_encuestador_g in df_g.columns:
-                        mapa_encuestadores = df_g.dropna(subset=["tel_link", col_encuestador_g]).drop_duplicates("tel_link").set_index("tel_link")[col_encuestador_g]
+                        df_g_twilio = df_g.copy()
+                        if "¿Por qué medio se realizó la llamada?" in df_g_twilio.columns:
+                            df_g_twilio = df_g_twilio[df_g_twilio["¿Por qué medio se realizó la llamada?"] == "Plataforma web"]
+                        mapa_encuestadores = df_g_twilio.dropna(subset=["tel_link", col_encuestador_g]).drop_duplicates("tel_link").set_index("tel_link")[col_encuestador_g]
                         df_prod[col_encuestador_g] = df_prod["tel_link"].map(mapa_encuestadores)
                         if not df_camara.empty and "tel_origen" in df_camara.columns and "encuestador" in df_camara.columns and "tel_from" in df_prod.columns:
                             mapa_origen_encuestador = df_camara.dropna(subset=["tel_origen", "encuestador"]).drop_duplicates("tel_origen").set_index("tel_origen")["encuestador"]
@@ -1247,9 +1250,10 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         if "tel_from" in df_prod.columns:
                             df_prod[col_encuestador_g] = df_prod[col_encuestador_g].where(
                                 df_prod[col_encuestador_g].notna(),
-                                df_prod["tel_from"]
+                                "Origen " + df_prod["tel_from"].fillna("").astype(str)
                             )
                         df_prod[col_encuestador_g] = df_prod[col_encuestador_g].fillna("Sin Encuestador")
+                        df_prod[col_encuestador_g] = df_prod[col_encuestador_g].replace("Origen ", "Sin Encuestador").astype(str)
 
                         tels_exito = set()
                         if "Resultado de la gestión (Agrupado)" in df_g.columns:
