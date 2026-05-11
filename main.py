@@ -505,35 +505,69 @@ if os.path.exists(NOMBRE_ARCHIVO):
                 # 3. Efectividad por Día y Hora
                 st.divider()
                 st.subheader("¿Cuándo es mejor llamar?")
-                if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns:
-                    # Marcamos cuales fueron exitosas (basado en df_g)
-                    if "Resultado de la gestión (Agrupado)" in df_g.columns:
-                        df_g['Es_Exito'] = df_g['tel_link'].isin(tels_exito)
+                if 'Dia_Semana' in df_g.columns and 'Franja Horaria' in df_g.columns and "Resultado de la gestión (Agrupado)" in df_g.columns:
+                    st.write("Conversión a Encuesta Exitosa con filtros por encuestador y constructora.")
+                    col_temp_f1, col_temp_f2 = st.columns(2)
+                    df_g_temp = df_g.copy()
 
-                    # Pivot table para Heatmap
-                    heatmap_data = df_g.groupby(['Dia_Semana', 'Franja Horaria'])['Es_Exito'].mean().reset_index()
-                    heatmap_data['Es_Exito'] *= 100 # Convertir a porcentaje
+                    with col_temp_f1:
+                        if "Nombre del o de la encuestadora" in df_g_temp.columns:
+                            enc_temp_list = ["Todos"] + sorted(df_g_temp["Nombre del o de la encuestadora"].dropna().unique().tolist())
+                            sel_enc_temp = st.selectbox("Encuestador - Conversión a Encuesta Exitosa", enc_temp_list)
+                            if sel_enc_temp != "Todos":
+                                df_g_temp = df_g_temp[df_g_temp["Nombre del o de la encuestadora"] == sel_enc_temp]
+                        else:
+                            st.warning("La columna 'Nombre del o de la encuestadora' no está disponible para filtrar.")
 
-                    # Definir el orden de las franjas horarias para el eje X
+                    with col_temp_f2:
+                        if "Constructora" in df_g_temp.columns:
+                            con_temp_list = ["Todas"] + sorted(df_g_temp["Constructora"].dropna().unique().tolist())
+                            sel_con_temp = st.selectbox("Constructora - Conversión a Encuesta Exitosa", con_temp_list)
+                            if sel_con_temp != "Todas":
+                                df_g_temp = df_g_temp[df_g_temp["Constructora"] == sel_con_temp]
+                        else:
+                            st.warning("La columna 'Constructora' no está disponible para filtrar.")
+
+                    df_g_temp['Es_Exito'] = df_g_temp["Resultado de la gestión (Agrupado)"] == "Éxito Total"
+
+                    dia_order = ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"]
                     franja_horaria_order = ["00:00 a 03:00", "03:00 a 06:00", "06:00 a 09:00", "09:00 a 12:00", 
                     "12:00 a 15:00", "15:00 a 18:00", "18:00 a 21:00", "21:00 a 00:00"]
 
+                    if not df_g_temp.empty:
+                        efectividad_dia = df_g_temp.groupby('Dia_Semana')['Es_Exito'].mean().reset_index()
+                        efectividad_dia['Es_Exito'] *= 100
+                        efectividad_hora = df_g_temp.groupby('Franja Horaria')['Es_Exito'].mean().reset_index()
+                        efectividad_hora['Es_Exito'] *= 100
 
+                        col_dia, col_hora = st.columns(2)
+                        with col_dia:
+                            fig_dia = px.bar(efectividad_dia, x='Dia_Semana', y='Es_Exito',
+                                             text_auto='.1f', color='Es_Exito',
+                                             color_continuous_scale='Viridis',
+                                             title="Mapa de Calor: % de Efectividad por Día",
+                                             labels={'Es_Exito': '% Efectividad', 'Dia_Semana': 'Día'},
+                                             category_orders={"Dia_Semana": dia_order})
+                            fig_dia.update_traces(texttemplate='%{y:.1f}%')
+                            fig_dia.update_layout(yaxis_ticksuffix="%")
+                            st.plotly_chart(fig_dia, use_container_width=True)
 
-                    
-                    # Ordenar días correctamente
-                    fig_heat = px.density_heatmap(heatmap_data, x='Franja Horaria', y='Dia_Semana', z='Es_Exito',
-                                                  color_continuous_scale='Viridis',
-                                                  title="Mapa de Calor: % de Efectividad (Conversión a Encuesta Exitosa)",
-                                                  labels={'Es_Exito': '% Efectividad', 'Franja Horaria': 'Franja Horaria del Día', 'Dia_Semana': 'Día'},
-                                                  category_orders={"Dia_Semana": ["1. Lunes", "2. Martes", "3. Miércoles", "4. Jueves", "5. Viernes", "6. Sábado", "7. Domingo"],
-                                                                   "Franja Horaria": franja_horaria_order})
+                        with col_hora:
+                            fig_hora = px.bar(efectividad_hora, x='Franja Horaria', y='Es_Exito',
+                                              text_auto='.1f', color='Es_Exito',
+                                              color_continuous_scale='Viridis',
+                                              title="Mapa de Calor: % de Efectividad por Hora",
+                                              labels={'Es_Exito': '% Efectividad', 'Franja Horaria': 'Franja Horaria del Día'},
+                                              category_orders={"Franja Horaria": franja_horaria_order})
+                            fig_hora.update_traces(texttemplate='%{y:.1f}%')
+                            fig_hora.update_layout(yaxis_ticksuffix="%")
+                            st.plotly_chart(fig_hora, use_container_width=True)
 
-                    st.plotly_chart(fig_heat, use_container_width=True)
-                    st.caption("Los colores más claros (amarillo) indican franjas horarias y días con mayor probabilidad de que la gestión termine en una Encuesta Exitosa. La efectividad se calcula como el promedio de éxitos (0% a 100%).")
-
+                        st.caption("Los valores más altos indican días u horas con mayor probabilidad de que la gestión termine en una Encuesta Exitosa. La efectividad se calcula como el promedio de éxitos (0% a 100%).")
+                    else:
+                        st.warning("No hay datos disponibles con los filtros seleccionados para calcular la efectividad.")
                 else:
-                    st.warning("Las columnas 'Dia_Semana' o 'Franja Horaria' no están disponibles para el análisis del mapa de calor.")
+                    st.warning("Las columnas 'Dia_Semana', 'Franja Horaria' o 'Resultado de la gestión (Agrupado)' no están disponibles para el análisis del mapa de calor.")
 
                 
                 # 4. Análisis específico de "Llamar después" (Seguimiento)
