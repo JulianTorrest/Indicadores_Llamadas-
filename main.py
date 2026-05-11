@@ -638,7 +638,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         fig_perf.add_trace(go.Scatter(
                             x=df_plot_perf["Fecha (día/mes)"],
                             y=df_plot_perf["Llamadas_Realizadas"],
-                            mode="lines+markers",
+                            mode="lines+markers+text",
                             name="Llamadas Realizadas",
                             text=df_plot_perf["Llamadas_Realizadas"].round(0).astype(int).astype(str),
                             textposition="top center",
@@ -648,7 +648,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         fig_perf.add_trace(go.Scatter(
                             x=df_plot_perf["Fecha (día/mes)"],
                             y=df_plot_perf["Llamadas_Efectivas"],
-                            mode="lines+markers",
+                            mode="lines+markers+text",
                             name="Llamadas Efectivas",
                             text=df_plot_perf["Llamadas_Efectivas"].round(0).astype(int).astype(str),
                             textposition="bottom center",
@@ -658,7 +658,7 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         fig_perf.add_trace(go.Scatter(
                             x=df_plot_perf["Fecha (día/mes)"],
                             y=df_plot_perf["% Efectividad"],
-                            mode="lines+markers",
+                            mode="lines+markers+text",
                             name="% Efectividad",
                             text=df_plot_perf["% Efectividad"].round(1).astype(str) + "%",
                             textposition="top center",
