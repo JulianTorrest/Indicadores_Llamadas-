@@ -4,6 +4,7 @@ import streamlit as st
 import os
 import unicodedata
 import plotly.express as px
+import plotly.graph_objects as go
 
 def limpiar_texto(texto):
     if not isinstance(texto, str): return texto
@@ -624,36 +625,47 @@ if os.path.exists(NOMBRE_ARCHIVO):
                         desempeño_diario["Fecha"] = pd.to_datetime(desempeño_diario["Fecha"])
                         desempeño_diario["Fecha (día/mes)"] = desempeño_diario["Fecha"].dt.strftime("%d/%m")
 
-                        desempeño_largo = desempeño_diario.melt(
-                            id_vars=[col_encuestador_perf, "Fecha", "Fecha (día/mes)"],
-                            value_vars=["Llamadas_Realizadas", "Llamadas_Efectivas", "% Efectividad"],
-                            var_name="Métrica",
-                            value_name="Valor"
-                        )
-
                         if sel_enc_perf != "Todos":
-                            fig_perf = px.line(
-                                desempeño_largo.sort_values("Fecha"),
-                                x="Fecha (día/mes)",
-                                y="Valor",
-                                color="Métrica",
-                                markers=True,
-                                title=f"Desempeño Diario - {sel_enc_perf}",
-                                labels={"Valor": "Cantidad / %", "Fecha (día/mes)": "Fecha"}
-                            )
+                            df_plot_perf = desempeño_diario.sort_values("Fecha")
                         else:
-                            fig_perf = px.line(
-                                desempeño_largo.sort_values("Fecha"),
-                                x="Fecha (día/mes)",
-                                y="Valor",
-                                color="Métrica",
-                                line_dash=col_encuestador_perf,
-                                markers=True,
-                                title="Desempeño Diario por Encuestador",
-                                labels={"Valor": "Cantidad / %", "Fecha (día/mes)": "Fecha", col_encuestador_perf: "Encuestador"}
-                            )
+                            df_plot_perf = desempeño_diario.groupby(["Fecha", "Fecha (día/mes)"]).agg(
+                                Llamadas_Realizadas=("Llamadas_Realizadas", "sum"),
+                                Llamadas_Efectivas=("Llamadas_Efectivas", "sum")
+                            ).reset_index().sort_values("Fecha")
+                            df_plot_perf["% Efectividad"] = df_plot_perf["Llamadas_Efectivas"] / df_plot_perf["Llamadas_Realizadas"] * 100
 
-                        fig_perf.update_traces(textposition="top center")
+                        fig_perf = go.Figure()
+                        fig_perf.add_trace(go.Scatter(
+                            x=df_plot_perf["Fecha (día/mes)"],
+                            y=df_plot_perf["Llamadas_Realizadas"],
+                            mode="lines+markers",
+                            name="Llamadas Realizadas",
+                            line=dict(color="#1f77b4"),
+                            yaxis="y"
+                        ))
+                        fig_perf.add_trace(go.Scatter(
+                            x=df_plot_perf["Fecha (día/mes)"],
+                            y=df_plot_perf["Llamadas_Efectivas"],
+                            mode="lines+markers",
+                            name="Llamadas Efectivas",
+                            line=dict(color="#66b3ff"),
+                            yaxis="y"
+                        ))
+                        fig_perf.add_trace(go.Scatter(
+                            x=df_plot_perf["Fecha (día/mes)"],
+                            y=df_plot_perf["% Efectividad"],
+                            mode="lines+markers",
+                            name="% Efectividad",
+                            line=dict(color="#ff3333"),
+                            yaxis="y2"
+                        ))
+                        fig_perf.update_layout(
+                            title=f"Desempeño Diario - {sel_enc_perf}" if sel_enc_perf != "Todos" else "Desempeño Diario Consolidado",
+                            xaxis=dict(title="Fecha"),
+                            yaxis=dict(title="Cantidad de llamadas"),
+                            yaxis2=dict(title="% Efectividad", overlaying="y", side="right", ticksuffix="%"),
+                            legend=dict(title="Métrica")
+                        )
                         st.plotly_chart(fig_perf, use_container_width=True)
 
                         st.dataframe(desempeño_diario.sort_values([col_encuestador_perf, "Fecha"]))
